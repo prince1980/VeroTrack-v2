@@ -118,59 +118,32 @@
     return { success: true, email };
   }
 
-  // Google OAuth flow
-  async function loginWithGoogle() {
-    return new Promise((resolve, reject) => {
-      if (!window.google) {
-        reject(new Error('Google SDK not loaded. Make sure to load it from https://accounts.google.com/gsi/client'));
-        return;
-      }
+  // Handle Google OAuth callback
+  async function handleGoogleSignIn(response) {
+    try {
+      const token = response.credential;
+      const parts = token.split('.');
+      if (parts.length !== 3) throw new Error('Invalid token format');
+      
+      const payload = JSON.parse(atob(parts[1]));
+      const email = payload.email;
+      
+      if (!email) throw new Error('No email in token');
 
-      try {
-        google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: async (response) => {
-            try {
-              // Decode JWT token (basic decoding without verification for client-side)
-              const token = response.credential;
-              const parts = token.split('.');
-              if (parts.length !== 3) throw new Error('Invalid token format');
-              
-              const payload = JSON.parse(atob(parts[1]));
-              const email = payload.email;
-              
-              if (!email) throw new Error('No email in token');
-
-              // Check if user exists, if not create them (auto sign-up)
-              let user = await getUser(email);
-              if (!user) {
-                // Auto-create user from Google OAuth
-                user = await storeUser(email, 'google_oauth', { 
-                  name: payload.name,
-                  picture: payload.picture 
-                });
-              }
-
-              setCurrentUser(email);
-              resolve({ success: true, email, isNewUser: !user });
-            } catch (e) {
-              reject(e);
-            }
-          },
-          error_callback: () => {
-            reject(new Error('Google sign-in failed'));
-          }
+      let user = await getUser(email);
+      if (!user) {
+        user = await storeUser(email, 'google_oauth', { 
+          name: payload.name,
+          picture: payload.picture 
         });
-
-        // Show Google sign-in
-        google.accounts.id.renderButton(
-          document.getElementById('google-signin-btn'),
-          { theme: 'dark', size: 'large' }
-        );
-      } catch (e) {
-        reject(e);
       }
-    });
+
+      setCurrentUser(email);
+      return { success: true, email, isNewUser: !user };
+    } catch (e) {
+      console.error('Google sign-in error:', e);
+      throw e;
+    }
   }
 
   // Set current user and save device cookie
@@ -216,7 +189,7 @@
   window.VeroTrackAuth = {
     register,
     login,
-    loginWithGoogle,
+    handleGoogleSignIn,
     logout,
     getCurrentUser,
     isAuthenticated,
@@ -226,6 +199,7 @@
     hashPassword,
     setCookie,
     getCookie,
-    deleteCookie
+    deleteCookie,
+    GOOGLE_CLIENT_ID
   };
 })();
