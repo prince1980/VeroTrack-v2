@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>VeroTrack — generate icons</title>
+  <style>
+    body { font-family: system-ui; background: #111; color: #eee; padding: 24px; max-width: 520px; margin: 0 auto; }
+    h1 { font-size: 1.1rem; }
+    p { color: #9ca3af; line-height: 1.5; }
+    button { margin: 8px 8px 0 0; padding: 12px 16px; border-radius: 12px; border: none; background: #34d399; color: #022c22; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>VeroTrack icons (one-time)</h1>
+  <p>Open this file in Chrome or Edge, tap the buttons, and save the PNGs into this same <code>icons/</code> folder as <code>icon-192.png</code>, <code>icon-512.png</code>, and copy one as <code>apple-touch-icon.png</code> for iPhone.</p>
+  <canvas id="c" width="512" height="512" hidden></canvas>
+  <div>
+    <button type="button" id="b192">Download 192×192</button>
+    <button type="button" id="b512">Download 512×512</button>
+  </div>
+  <script>
+    function draw(size) {
+      const c = document.getElementById('c');
+      c.width = size; c.height = size;
+      const ctx = c.getContext('2d');
+      const r = size * 0.22;
+      ctx.fillStyle = '#0a0a0c';
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(0, 0, size, size, r);
+        ctx.fill();
+      } else {
+        ctx.fillRect(0, 0, size, size);
+      }
+      const g = ctx.createLinearGradient(size * 0.35, 0, size * 0.35, size);
+      g.addColorStop(0, '#34d399');
+      g.addColorStop(1, '#22d3ee');
+      ctx.fillStyle = g;
+      ctx.shadowColor = 'rgba(52, 211, 153, 0.45)';
+      ctx.shadowBlur = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.5, size * 0.22);
+      ctx.lineTo(size * 0.72, size * 0.78);
+      ctx.lineTo(size * 0.58, size * 0.78);
+      ctx.lineTo(size * 0.5, size * 0.48);
+      ctx.lineTo(size * 0.42, size * 0.78);
+      ctx.lineTo(size * 0.28, size * 0.78);
+      ctx.closePath();
+      ctx.fill();
+      return c;
+    }
+    function dl(size, name) {
+      const canvas = draw(size);
+      const a = document.createElement('a');
+      a.download = name;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    }
+    document.getElementById('b192').onclick = () => dl(192, 'icon-192.png');
+    document.getElementById('b512').onclick = () => dl(512, 'icon-512.png');
+  </script>
+</body>
+</html>

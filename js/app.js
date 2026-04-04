@@ -1,0 +1,1288 @@
+(function () {
+  const S = window.VeroTrackStorage;
+  const B = window.VeroTrackBurn;
+  const G = window.VeroTrackGamify;
+  const T = window.VeroTrackTips;
+
+  let data = S.load();
+
+  const METER_R = 92;
+  const METER_LEN = 2 * Math.PI * METER_R;
+
+  const BADGE_ICONS = {
+    first_meal: '🍽',
+    streak_7: '🔥',
+    xp_1k: '⚡',
+    profile_pro: '📐',
+  };
+
+  const els = {
+    toast: document.getElementById('toast'),
+    statusTime: document.getElementById('status-time'),
+    profileBanner: document.getElementById('profile-banner'),
+    btnBannerSettings: document.getElementById('btn-banner-settings'),
+    btnOpenSettings: document.getElementById('btn-open-settings'),
+    homeGreeting: document.getElementById('home-greeting'),
+    homeDate: document.getElementById('home-date'),
+    homeProtein: document.getElementById('home-protein'),
+    homeSteps: document.getElementById('home-steps'),
+    homeWater: document.getElementById('home-water'),
+    homeWorkout: document.getElementById('home-workout'),
+    homeWorkoutCard: document.getElementById('home-workout-card'),
+    homeSupplements: document.getElementById('home-supplements'),
+    homeStreak: document.getElementById('home-streak'),
+    homeStreakNum: document.getElementById('home-streak-num'),
+    xpLevel: document.getElementById('xp-level'),
+    xpTotal: document.getElementById('xp-total'),
+    xpBarWrap: document.getElementById('xp-bar-wrap'),
+    xpBarFill: document.getElementById('xp-bar-fill'),
+    xpNext: document.getElementById('xp-next'),
+    badgesMini: document.getElementById('badges-mini'),
+    meterArc: document.getElementById('meter-arc'),
+    meterKcal: document.getElementById('meter-kcal'),
+    meterTarget: document.getElementById('meter-target'),
+    heroBurn: document.getElementById('hero-burn'),
+    heroBudget: document.getElementById('hero-budget'),
+    heroFootnote: document.getElementById('hero-footnote'),
+    heroIn: document.getElementById('hero-in'),
+    stripProtein: document.getElementById('strip-protein'),
+    stripProteinPct: document.getElementById('strip-protein-pct'),
+    stripSteps: document.getElementById('strip-steps'),
+    stripStepsPct: document.getElementById('strip-steps-pct'),
+    stripWater: document.getElementById('strip-water'),
+    stripWaterPct: document.getElementById('strip-water-pct'),
+    burnWalk: document.getElementById('burn-walk'),
+    burnTrain: document.getElementById('burn-train'),
+    burnRest: document.getElementById('burn-rest'),
+    btnToggleBreakdown: document.getElementById('btn-toggle-breakdown'),
+    panelBreakdown: document.getElementById('panel-breakdown'),
+    challengeStatus: document.getElementById('challenge-status'),
+    challengeTitle: document.getElementById('challenge-title'),
+    challengeDesc: document.getElementById('challenge-desc'),
+    btnChallengeClaim: document.getElementById('btn-challenge-claim'),
+    tipText: document.getElementById('tip-text'),
+    tipSource: document.getElementById('tip-source'),
+    tipLoading: document.getElementById('tip-loading'),
+    btnTipRefresh: document.getElementById('btn-tip-refresh'),
+    formFood: document.getElementById('form-food'),
+    foodName: document.getElementById('food-name'),
+    foodCalories: document.getElementById('food-calories'),
+    foodProtein: document.getElementById('food-protein'),
+    foodList: document.getElementById('food-list'),
+    foodEmpty: document.getElementById('food-empty'),
+    formSteps: document.getElementById('form-steps'),
+    stepsInput: document.getElementById('steps-input'),
+    waterTotal: document.getElementById('water-total'),
+    waterChips: document.getElementById('water-chips'),
+    formWaterCustom: document.getElementById('form-water-custom'),
+    waterCustom: document.getElementById('water-custom'),
+    supplementList: document.getElementById('supplement-list'),
+    formSupplementCustom: document.getElementById('form-supplement-custom'),
+    supplementNew: document.getElementById('supplement-new'),
+    btnWorkoutToggle: document.getElementById('btn-workout-toggle'),
+    workoutHint: document.getElementById('workout-hint'),
+    workoutTabBurn: document.getElementById('workout-tab-burn'),
+    btnExerciseInspire: document.getElementById('btn-exercise-inspire'),
+    formExercise: document.getElementById('form-exercise'),
+    exName: document.getElementById('ex-name'),
+    exMet: document.getElementById('ex-met'),
+    exDuration: document.getElementById('ex-duration'),
+    exSets: document.getElementById('ex-sets'),
+    exReps: document.getElementById('ex-reps'),
+    exWeight: document.getElementById('ex-weight'),
+    exerciseList: document.getElementById('exercise-list'),
+    exerciseEmpty: document.getElementById('exercise-empty'),
+    weekChart: document.getElementById('week-chart'),
+    weekSummary: document.getElementById('week-summary'),
+    historyList: document.getElementById('history-list'),
+    historyEmpty: document.getElementById('history-empty'),
+    modalOverlay: document.getElementById('modal-overlay'),
+    modalTitle: document.getElementById('modal-title'),
+    modalBody: document.getElementById('modal-body'),
+    modalClose: document.getElementById('modal-close'),
+    settingsOverlay: document.getElementById('settings-overlay'),
+    settingsClose: document.getElementById('settings-close'),
+    setWeightKg: document.getElementById('set-weight-kg'),
+    setHeight: document.getElementById('set-height'),
+    setAge: document.getElementById('set-age'),
+    setSex: document.getElementById('set-sex'),
+    bmrReadout: document.getElementById('bmr-readout'),
+    setCalGoal: document.getElementById('set-cal-goal'),
+    setProtGoal: document.getElementById('set-prot-goal'),
+    setStepGoal: document.getElementById('set-step-goal'),
+    setWaterGoal: document.getElementById('set-water-goal'),
+    btnSaveSettings: document.getElementById('btn-save-settings'),
+    btnExport: document.getElementById('btn-export'),
+    importFile: document.getElementById('import-file'),
+    btnSyncLogin: document.getElementById('btn-sync-login'),
+    btnSyncLogout: document.getElementById('btn-sync-logout'),
+    syncStatus: document.getElementById('sync-status'),
+  };
+
+  let toastTimer = null;
+  let tipLoading = false;
+
+  function showToast(message, isError) {
+    els.toast.textContent = message;
+    els.toast.style.borderColor = isError ? 'var(--danger)' : 'var(--border)';
+    els.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      els.toast.classList.remove('show');
+    }, 2600);
+  }
+
+  function persist() {
+    if (!S.save(data)) {
+      showToast('Could not save data', true);
+    }
+  }
+
+  function getDay(key) {
+    if (!data.days[key]) {
+      data.days[key] = S.emptyDay();
+      data.days[key].supplementState = S.ensureCatalogIds(data.catalog, {});
+    } else {
+      data.days[key] = S.migrateDay(data.days[key]);
+      data.days[key].supplementState = S.ensureCatalogIds(
+        data.catalog,
+        data.days[key].supplementState || {}
+      );
+    }
+    return data.days[key];
+  }
+
+  function today() {
+    return getDay(S.todayKey());
+  }
+
+  function parseNonNegativeInt(value, label) {
+    const t = String(value).trim();
+    if (t === '') {
+      showToast(`Enter ${label}`, true);
+      return null;
+    }
+    const n = Number(t);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+      showToast(`${label} must be a whole number ≥ 0`, true);
+      return null;
+    }
+    return n;
+  }
+
+  function parsePositiveInt(value, label) {
+    const t = String(value).trim();
+    if (t === '') {
+      showToast(`Enter ${label}`, true);
+      return null;
+    }
+    const n = Number(t);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+      showToast(`${label} must be at least 1`, true);
+      return null;
+    }
+    return n;
+  }
+
+  function parseNonNegativeNumber(value, label) {
+    const t = String(value).trim();
+    if (t === '') {
+      showToast(`Enter ${label}`, true);
+      return null;
+    }
+    const n = Number(t);
+    if (!Number.isFinite(n) || n < 0) {
+      showToast(`${label} must be ≥ 0`, true);
+      return null;
+    }
+    return n;
+  }
+
+  function parseRequiredNonEmpty(value, label) {
+    const t = String(value).trim();
+    if (!t) {
+      showToast(`${label} cannot be empty`, true);
+      return null;
+    }
+    return t;
+  }
+
+  function foodTotals(day) {
+    let cals = 0;
+    let prot = 0;
+    day.food.forEach((f) => {
+      cals += f.calories;
+      prot += f.protein;
+    });
+    return { calories: cals, protein: prot };
+  }
+
+  function supplementsTakenCount(day) {
+    let taken = 0;
+    data.catalog.forEach((s) => {
+      if (day.supplementState[s.id]) {
+        taken += 1;
+      }
+    });
+    return { taken, total: data.catalog.length };
+  }
+
+  function isWorkoutDoneForKey(dateKey) {
+    const d = data.days[dateKey];
+    return !!(d && d.workoutDone);
+  }
+
+  function workoutStreak() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    let d = new Date(start);
+
+    if (!isWorkoutDoneForKey(formatDateKey(d))) {
+      d.setDate(d.getDate() - 1);
+    }
+
+    let streak = 0;
+    while (isWorkoutDoneForKey(formatDateKey(d))) {
+      streak += 1;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function formatDateKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatDisplayDate(dateKey) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+
+  function roundProt(n) {
+    return Math.round(n * 10) / 10;
+  }
+
+  function pctDisplay(n, d) {
+    if (!d || d <= 0) return '—';
+    const p = Math.round((n / d) * 100);
+    return `${p}%`;
+  }
+
+  function updateStatusTime() {
+    if (!els.statusTime) return;
+    const now = new Date();
+    els.statusTime.textContent = now.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  function greetingLine() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  function showProfileBanner() {
+    const p = data.profile;
+    const need = !p || p.weightKg <= 0 || p.heightCm <= 0;
+    els.profileBanner.hidden = !need;
+  }
+
+  function processGamifyGoals() {
+    const key = S.todayKey();
+    const day = getDay(key);
+    const game = G.ensureGame(data);
+    const f = G.dayFlags(game, key);
+    const totals = foodTotals(day);
+    const goals = data.goals;
+    let changed = false;
+
+    if (!f.stepGoalXp && goals.stepGoal > 0 && day.steps >= goals.stepGoal) {
+      f.stepGoalXp = true;
+      G.awardXp(game, G.XP_STEPS_GOAL);
+      changed = true;
+    }
+    if (!f.proteinGoalXp && goals.proteinTargetG > 0 && totals.protein >= goals.proteinTargetG) {
+      f.proteinGoalXp = true;
+      G.awardXp(game, G.XP_PROTEIN_GOAL);
+      changed = true;
+    }
+    if (!f.waterGoalXp && goals.waterGoalMl > 0 && (day.waterMl || 0) >= goals.waterGoalMl) {
+      f.waterGoalXp = true;
+      G.awardXp(game, G.XP_WATER_GOAL);
+      changed = true;
+    }
+    if (changed) {
+      persist();
+      showToast('Goal crushed · XP earned');
+    }
+  }
+
+  function checkBadges() {
+    const game = G.ensureGame(data);
+    const day = today();
+    let b = false;
+    if (day.food.length > 0 && G.addBadge(game, 'first_meal')) {
+      showToast('Badge unlocked · First meal');
+      b = true;
+    }
+    if (workoutStreak() >= 7 && G.addBadge(game, 'streak_7')) {
+      showToast('Badge unlocked · Week warrior');
+      b = true;
+    }
+    if (game.xp >= 1000 && G.addBadge(game, 'xp_1k')) {
+      showToast('Badge unlocked · Momentum');
+      b = true;
+    }
+    const p = data.profile;
+    if (p && p.weightKg > 0 && p.heightCm > 0 && G.addBadge(game, 'profile_pro')) {
+      showToast('Badge unlocked · Metrics set');
+      b = true;
+    }
+    if (b) persist();
+  }
+
+  function renderGamifyHeader() {
+    const game = G.ensureGame(data);
+    const lvl = G.levelFromXp(game.xp);
+    const prog = G.xpProgress(game.xp);
+    els.xpLevel.textContent = String(lvl);
+    els.xpTotal.textContent = String(game.xp);
+    const pct = Math.round(prog.pct * 100);
+    els.xpBarFill.style.width = `${pct}%`;
+    els.xpBarWrap.setAttribute('aria-valuenow', String(pct));
+    const need = prog.nextAt - prog.inLevel;
+    els.xpNext.textContent = need <= 0 ? 'Max segment — keep going' : `${need} XP to next tier`;
+
+    els.badgesMini.innerHTML = '';
+    game.badges.forEach((id) => {
+      const span = document.createElement('span');
+      span.className = 'badge-pill';
+      span.textContent = BADGE_ICONS[id] || '★';
+      span.title = id.replace(/_/g, ' ');
+      els.badgesMini.appendChild(span);
+    });
+  }
+
+  function renderChallenge(key, day, totals) {
+    const game = G.ensureGame(data);
+    const daily = G.ensureDailyChallenge(game, key);
+    const goals = data.goals;
+    const ctx = { day, totals, goals };
+    const complete = G.isChallengeComplete(daily, ctx);
+
+    els.challengeTitle.textContent = daily.title || 'Daily quest';
+    els.challengeDesc.textContent = daily.desc || '';
+
+    if (daily.claimed) {
+      els.challengeStatus.textContent = 'Claimed';
+      els.btnChallengeClaim.hidden = true;
+    } else if (complete) {
+      els.challengeStatus.textContent = 'Complete';
+      els.btnChallengeClaim.hidden = false;
+      els.btnChallengeClaim.textContent = `Claim +${G.XP_CHALLENGE} XP`;
+    } else {
+      els.challengeStatus.textContent = 'In progress';
+      els.btnChallengeClaim.hidden = true;
+    }
+  }
+
+  function renderHome() {
+    const key = S.todayKey();
+    const day = getDay(key);
+    const totals = foodTotals(day);
+    const sup = supplementsTakenCount(day);
+    const streak = workoutStreak();
+    const burn = B.totalActiveBurn(day, data.profile);
+    const goals = data.goals;
+    const budget = B.calorieBudgetRemaining(totals.calories, goals, burn.total);
+    const resting = B.restingBurnSoFarKcal(data.profile);
+
+    if (els.homeGreeting) {
+      els.homeGreeting.textContent = greetingLine();
+    }
+    els.homeDate.textContent = formatDisplayDate(key);
+
+    els.homeProtein.textContent = String(roundProt(totals.protein));
+    els.homeSteps.textContent = String(day.steps || 0);
+    els.homeWater.textContent = String(day.waterMl || 0);
+    els.heroIn.textContent = String(totals.calories);
+
+    els.meterKcal.textContent = String(totals.calories);
+    els.meterTarget.textContent = `of ${goals.calorieTarget} kcal goal`;
+    const calRatio = goals.calorieTarget > 0 ? Math.min(1, totals.calories / goals.calorieTarget) : 0;
+    if (els.meterArc) {
+      els.meterArc.style.strokeDasharray = String(METER_LEN);
+      els.meterArc.style.strokeDashoffset = String(METER_LEN * (1 - calRatio));
+    }
+
+    els.heroBurn.textContent = String(burn.total);
+    els.heroBudget.textContent = budget == null ? '—' : String(budget);
+    els.heroFootnote.textContent =
+      budget == null
+        ? 'Set a calorie target in Settings for budget.'
+        : 'Budget = target + active burn − food.';
+
+    els.stripProtein.textContent = `${roundProt(totals.protein)}g`;
+    els.stripProteinPct.textContent = pctDisplay(totals.protein, goals.proteinTargetG);
+    els.stripSteps.textContent = String(day.steps || 0);
+    els.stripStepsPct.textContent = pctDisplay(day.steps || 0, goals.stepGoal);
+    els.stripWater.textContent = `${day.waterMl || 0} ml`;
+    els.stripWaterPct.textContent = pctDisplay(day.waterMl || 0, goals.waterGoalMl);
+
+    if (day.workoutDone) {
+      els.homeWorkout.textContent = 'Done';
+      els.homeWorkout.classList.remove('pending');
+      els.homeWorkoutCard.classList.add('done');
+      els.homeWorkoutCard.classList.remove('pending');
+      els.homeWorkout.classList.remove('pending');
+    } else {
+      els.homeWorkout.textContent = 'Pending';
+      els.homeWorkout.classList.add('pending');
+      els.homeWorkoutCard.classList.remove('done');
+      els.homeWorkoutCard.classList.add('pending');
+    }
+
+    els.homeSupplements.textContent = `${sup.taken} / ${sup.total}`;
+    els.homeStreakNum.textContent = String(streak);
+    els.homeStreak.textContent =
+      streak === 1 ? 'Consecutive workout days' : 'Consecutive workout days';
+
+    els.burnWalk.textContent = `${burn.walk} kcal`;
+    els.burnTrain.textContent = `${burn.train} kcal`;
+    els.burnRest.textContent = resting > 0 ? `${resting} kcal` : '—';
+
+    showProfileBanner();
+    processGamifyGoals();
+    checkBadges();
+    renderGamifyHeader();
+    renderChallenge(key, day, totals);
+  }
+
+  async function loadTip() {
+    if (tipLoading || !els.tipText) return;
+    tipLoading = true;
+    els.tipLoading.hidden = false;
+    els.btnTipRefresh.disabled = true;
+    try {
+      const tip = await T.fetchFreshTip();
+      els.tipText.textContent = tip.text;
+      els.tipSource.textContent = tip.source || '';
+    } catch {
+      els.tipText.textContent =
+        'Connection hiccup. Tap refresh — we rotate live quotes, advice, and facts from public APIs.';
+      els.tipSource.textContent = 'Offline hint';
+    }
+    els.tipLoading.hidden = true;
+    els.btnTipRefresh.disabled = false;
+    tipLoading = false;
+  }
+
+  function renderFoodList() {
+    const day = today();
+    els.foodList.innerHTML = '';
+    if (day.food.length === 0) {
+      els.foodEmpty.hidden = false;
+      return;
+    }
+    els.foodEmpty.hidden = true;
+    day.food
+      .slice()
+      .reverse()
+      .forEach((f) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div class="entry-main">
+            <div class="entry-title"></div>
+            <div class="entry-meta"></div>
+          </div>
+          <button type="button" class="btn-remove" data-id="${f.id}">Remove</button>
+        `;
+        li.querySelector('.entry-title').textContent = f.name;
+        li.querySelector('.entry-meta').textContent = `${f.calories} kcal · ${roundProt(f.protein)} g protein`;
+        li.querySelector('.btn-remove').addEventListener('click', () => {
+          day.food = day.food.filter((x) => x.id !== f.id);
+          persist();
+          renderAll();
+          showToast('Entry removed');
+        });
+        els.foodList.appendChild(li);
+      });
+  }
+
+  function renderStepsInput() {
+    const day = today();
+    els.stepsInput.value = day.steps ? String(day.steps) : '';
+  }
+
+  function renderWater() {
+    const day = today();
+    const g = data.goals.waterGoalMl || 2000;
+    els.waterTotal.textContent = `${day.waterMl || 0} / ${g}`;
+  }
+
+  function renderSupplements() {
+    const day = today();
+    els.supplementList.innerHTML = '';
+    data.catalog.forEach((s) => {
+      const taken = !!day.supplementState[s.id];
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toggle-btn' + (taken ? ' on' : '');
+      btn.textContent = taken ? 'Taken' : 'Not taken';
+      btn.setAttribute('aria-pressed', taken ? 'true' : 'false');
+      btn.addEventListener('click', () => {
+        day.supplementState[s.id] = !day.supplementState[s.id];
+        persist();
+        renderAll();
+        showToast(day.supplementState[s.id] ? 'Marked taken' : 'Marked not taken');
+      });
+      const name = document.createElement('span');
+      name.className = 'toggle-name';
+      name.textContent = s.name;
+      li.appendChild(name);
+      li.appendChild(btn);
+      els.supplementList.appendChild(li);
+    });
+  }
+
+  function metLabel(key) {
+    return B.MET_LABELS[key] || key;
+  }
+
+  function renderWorkoutTab() {
+    const day = today();
+    const trainBurn = B.trainingBurnFromExercises(day.exercises, data.profile);
+    els.workoutTabBurn.textContent = `${trainBurn} kcal`;
+
+    if (day.workoutDone) {
+      els.btnWorkoutToggle.textContent = 'Undo workout';
+      els.btnWorkoutToggle.classList.remove('btn-primary');
+      els.btnWorkoutToggle.classList.add('btn-secondary');
+      els.workoutHint.textContent = 'Logged for today.';
+    } else {
+      els.btnWorkoutToggle.textContent = 'Mark workout done';
+      els.btnWorkoutToggle.classList.add('btn-primary');
+      els.btnWorkoutToggle.classList.remove('btn-secondary');
+      els.workoutHint.textContent = '';
+    }
+
+    els.exerciseList.innerHTML = '';
+    if (day.exercises.length === 0) {
+      els.exerciseEmpty.hidden = false;
+    } else {
+      els.exerciseEmpty.hidden = true;
+      day.exercises
+        .slice()
+        .reverse()
+        .forEach((ex) => {
+          const li = document.createElement('li');
+          const kcal = B.exerciseLineBurnKcal(ex, data.profile);
+          li.innerHTML = `
+            <div class="entry-main">
+              <div class="entry-title"></div>
+              <div class="entry-meta"></div>
+            </div>
+            <button type="button" class="btn-remove" data-ex-id="${ex.id}">Remove</button>
+          `;
+          li.querySelector('.entry-title').textContent = ex.name;
+          li.querySelector('.entry-meta').textContent = `${metLabel(ex.metCategory)} · ${ex.durationMin} min · ${ex.sets}×${ex.reps} @ ${ex.weight} · ~${kcal} kcal`;
+          li.querySelector('.btn-remove').addEventListener('click', () => {
+            day.exercises = day.exercises.filter((x) => x.id !== ex.id);
+            persist();
+            renderAll();
+            showToast('Exercise removed');
+          });
+          els.exerciseList.appendChild(li);
+        });
+    }
+  }
+
+  function last7DayKeys() {
+    const keys = [];
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 7; i += 1) {
+      keys.push(formatDateKey(d));
+      d.setDate(d.getDate() - 1);
+    }
+    return keys.reverse();
+  }
+
+  function renderWeekChart() {
+    const keys = last7DayKeys();
+    let sumBurn = 0;
+    let sumIn = 0;
+    const maxBurn = Math.max(
+      1,
+      ...keys.map((k) => {
+        const day = getDay(k);
+        return B.totalActiveBurn(day, data.profile).total;
+      })
+    );
+
+    const chartPx = 100;
+    els.weekChart.innerHTML = '';
+    keys.forEach((k) => {
+      const day = getDay(k);
+      const burn = B.totalActiveBurn(day, data.profile).total;
+      const totals = foodTotals(day);
+      sumBurn += burn;
+      sumIn += totals.calories;
+
+      const [y, m, d] = k.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      const lbl = dt.toLocaleDateString(undefined, { weekday: 'narrow' });
+
+      const wrap = document.createElement('div');
+      wrap.className = 'week-bar';
+      const fill = document.createElement('div');
+      fill.className = 'week-bar__fill';
+      const hPx = Math.max(4, Math.round((burn / maxBurn) * chartPx));
+      fill.style.height = `${hPx}px`;
+      const lab = document.createElement('span');
+      lab.className = 'week-bar__lbl';
+      lab.textContent = lbl;
+      wrap.appendChild(fill);
+      wrap.appendChild(lab);
+      els.weekChart.appendChild(wrap);
+    });
+
+    const avgBurn = Math.round(sumBurn / 7);
+    const avgIn = Math.round(sumIn / 7);
+    els.weekSummary.textContent = `Rolling 7d · ${avgIn} kcal in · ${avgBurn} kcal burn (est.).`;
+  }
+
+  function renderHistory() {
+    const todayK = S.todayKey();
+    const keys = Object.keys(data.days)
+      .filter((k) => k !== todayK)
+      .sort()
+      .reverse();
+
+    els.historyList.innerHTML = '';
+    if (keys.length === 0) {
+      els.historyEmpty.hidden = false;
+    } else {
+      els.historyEmpty.hidden = true;
+    }
+
+    keys.forEach((key) => {
+      const day = getDay(key);
+      const totals = foodTotals(day);
+      const sup = supplementsTakenCount(day);
+      const burn = B.totalActiveBurn(day, data.profile);
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'history-item';
+      btn.innerHTML = `
+        <div class="history-date"></div>
+        <div class="history-summary"></div>
+      `;
+      btn.querySelector('.history-date').textContent = formatDisplayDate(key);
+      const w = day.workoutDone ? 'Done' : 'Pending';
+      btn.querySelector('.history-summary').textContent = `${totals.calories} in · ${burn.total} burn · ${roundProt(
+        totals.protein
+      )} g · ${day.steps || 0} steps · ${w} · ${day.waterMl || 0} ml H₂O`;
+      btn.addEventListener('click', () => openDayModal(key));
+      li.appendChild(btn);
+      els.historyList.appendChild(li);
+    });
+
+    renderWeekChart();
+  }
+
+  function openDayModal(dateKey) {
+    const day = getDay(dateKey);
+    const totals = foodTotals(day);
+    const sup = supplementsTakenCount(day);
+    const burn = B.totalActiveBurn(day, data.profile);
+    els.modalTitle.textContent = formatDisplayDate(dateKey);
+
+    const foodHtml =
+      day.food.length === 0
+        ? '<p>No food logged.</p>'
+        : `<ul>${day.food
+            .map(
+              (f) =>
+                `<li><strong>${escapeHtml(f.name)}</strong> — ${f.calories} kcal, ${roundProt(f.protein)} g protein</li>`
+            )
+            .join('')}</ul>`;
+
+    const exHtml =
+      day.exercises.length === 0
+        ? '<p>No exercises logged.</p>'
+        : `<ul>${day.exercises
+            .map((ex) => {
+              const k = B.exerciseLineBurnKcal(ex, data.profile);
+              return `<li><strong>${escapeHtml(ex.name)}</strong> — ${escapeHtml(metLabel(ex.metCategory))}, ${ex.durationMin} min, ${ex.sets}×${ex.reps} @ ${ex.weight} (~${k} kcal)</li>`;
+            })
+            .join('')}</ul>`;
+
+    const supLines = data.catalog
+      .map((s) => {
+        const ok = day.supplementState[s.id];
+        return `<li>${escapeHtml(s.name)}: ${ok ? 'Taken' : 'Not taken'}</li>`;
+      })
+      .join('');
+
+    els.modalBody.innerHTML = `
+      <div class="detail-block">
+        <h3>Energy</h3>
+        <p>${totals.calories} kcal in · ${burn.total} kcal burn (walk ${burn.walk} + train ${burn.train})</p>
+        <p>${roundProt(totals.protein)} g protein · ${day.steps || 0} steps · Water ${day.waterMl || 0} ml</p>
+        <p>Workout: <strong>${day.workoutDone ? 'Done' : 'Pending'}</strong></p>
+      </div>
+      <div class="detail-block">
+        <h3>Supplements</h3>
+        <ul>${supLines}</ul>
+      </div>
+      <div class="detail-block">
+        <h3>Food</h3>
+        ${foodHtml}
+      </div>
+      <div class="detail-block">
+        <h3>Exercises</h3>
+        ${exHtml}
+      </div>
+    `;
+
+    els.modalOverlay.hidden = false;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function closeModal() {
+    els.modalOverlay.hidden = true;
+  }
+
+  function openSettings() {
+    const p = data.profile;
+    const g = data.goals;
+    els.setWeightKg.value = p.weightKg > 0 ? String(p.weightKg) : '';
+    els.setHeight.value = p.heightCm > 0 ? String(p.heightCm) : '';
+    els.setAge.value = p.age > 0 ? String(p.age) : '';
+    els.setSex.value = p.sex || 'x';
+    els.setCalGoal.value = String(g.calorieTarget);
+    els.setProtGoal.value = String(g.proteinTargetG);
+    els.setStepGoal.value = String(g.stepGoal);
+    els.setWaterGoal.value = String(g.waterGoalMl);
+    updateBmrReadout();
+    els.settingsOverlay.hidden = false;
+  }
+
+  function closeSettings() {
+    els.settingsOverlay.hidden = true;
+  }
+
+  function updateBmrReadout() {
+    const p = {
+      weightKg: parseFloat(els.setWeightKg.value) || 0,
+      heightCm: parseFloat(els.setHeight.value) || 0,
+      age: parseInt(els.setAge.value, 10) || 0,
+      sex: els.setSex.value,
+    };
+    const b = B.bmrKcal(p);
+    els.bmrReadout.textContent =
+      b > 0 ? `Estimated BMR: ${b} kcal/day (reference only).` : 'Fill weight, height, and age for BMR.';
+  }
+
+  function fillMetSelect() {
+    els.exMet.innerHTML = '';
+    Object.keys(B.MET_BY_CATEGORY).forEach((key) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = B.MET_LABELS[key] || key;
+      els.exMet.appendChild(opt);
+    });
+  }
+
+  function renderAll() {
+    renderHome();
+    renderFoodList();
+    renderStepsInput();
+    renderWater();
+    renderSupplements();
+    renderWorkoutTab();
+    renderHistory();
+  }
+
+  function isDuplicateFood(day, name, calories, protein) {
+    const n = name.trim().toLowerCase();
+    return day.food.some(
+      (f) =>
+        f.name.trim().toLowerCase() === n &&
+        f.calories === calories &&
+        f.protein === protein
+    );
+  }
+
+  function isDuplicateExercise(day, name, sets, reps, weight, metCategory, durationMin) {
+    const n = name.trim().toLowerCase();
+    return day.exercises.some(
+      (ex) =>
+        ex.name.trim().toLowerCase() === n &&
+        ex.sets === sets &&
+        ex.reps === reps &&
+        ex.weight === weight &&
+        ex.metCategory === metCategory &&
+        ex.durationMin === durationMin
+    );
+  }
+
+  async function fetchRandomExerciseName() {
+    const offset = Math.floor(Math.random() * 400);
+    const url = `https://wger.de/api/v2/exercise/?language=2&limit=20&offset=${offset}`;
+    const r = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error('wger');
+    const d = await r.json();
+    if (!d.results || !d.results.length) throw new Error('empty');
+    const pick = d.results[Math.floor(Math.random() * d.results.length)];
+    return pick.name || pick.name_original || 'Custom move';
+  }
+
+  els.formFood.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = parseRequiredNonEmpty(els.foodName.value, 'Food name');
+    if (!name) return;
+
+    const calories = parseNonNegativeInt(els.foodCalories.value, 'Calories');
+    if (calories === null) return;
+
+    const proteinRaw = parseNonNegativeNumber(els.foodProtein.value, 'Protein');
+    if (proteinRaw === null) return;
+
+    const protein = Math.round(proteinRaw * 10) / 10;
+    const day = today();
+
+    if (isDuplicateFood(day, name, calories, protein)) {
+      showToast('That entry is already logged', true);
+      return;
+    }
+
+    day.food.push({
+      id: S.uid(),
+      name,
+      calories,
+      protein,
+      addedAt: Date.now(),
+    });
+    const game = G.ensureGame(data);
+    G.awardXp(game, G.XP_FOOD);
+    persist();
+    els.formFood.reset();
+    renderAll();
+    showToast('Logged · +15 XP');
+  });
+
+  els.formSteps.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const steps = parseNonNegativeInt(els.stepsInput.value, 'Steps');
+    if (steps === null) return;
+    const day = today();
+    day.steps = steps;
+    persist();
+    renderAll();
+    showToast('Steps saved');
+  });
+
+  els.waterChips.querySelectorAll('.chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const ml = parseInt(chip.getAttribute('data-ml'), 10);
+      if (!Number.isFinite(ml) || ml <= 0) return;
+      const day = today();
+      day.waterMl = (day.waterMl || 0) + ml;
+      const game = G.ensureGame(data);
+      const f = G.dayFlags(game, S.todayKey());
+      const n = (f.waterAdds || 0) + 1;
+      f.waterAdds = n;
+      if (n <= 5) {
+        G.awardXp(game, G.XP_WATER_ADD);
+      }
+      persist();
+      renderAll();
+      showToast(n <= 5 ? `+${ml} ml · hydration XP` : `+${ml} ml`);
+    });
+  });
+
+  els.formWaterCustom.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const ml = parseNonNegativeInt(els.waterCustom.value, 'Water (ml)');
+    if (ml === null) return;
+    if (ml === 0) {
+      showToast('Enter an amount greater than 0', true);
+      return;
+    }
+    const day = today();
+    day.waterMl = (day.waterMl || 0) + ml;
+    const game = G.ensureGame(data);
+    const f = G.dayFlags(game, S.todayKey());
+    const n = (f.waterAdds || 0) + 1;
+    f.waterAdds = n;
+    if (n <= 5) {
+      G.awardXp(game, G.XP_WATER_ADD);
+    }
+    persist();
+    els.waterCustom.value = '';
+    renderAll();
+    showToast(n <= 5 ? `Added · hydration XP` : 'Added');
+  });
+
+  els.formSupplementCustom.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = parseRequiredNonEmpty(els.supplementNew.value, 'Supplement name');
+    if (!name) return;
+
+    const exists = data.catalog.some((s) => s.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (exists) {
+      showToast('Already in your list', true);
+      return;
+    }
+
+    const id = `custom_${S.uid()}`;
+    data.catalog.push({ id, name: name.trim(), builtIn: false });
+    const day = today();
+    day.supplementState[id] = false;
+    persist();
+    els.supplementNew.value = '';
+    renderAll();
+    showToast('Supplement added');
+  });
+
+  els.btnWorkoutToggle.addEventListener('click', () => {
+    const day = today();
+    const game = G.ensureGame(data);
+    const f = G.dayFlags(game, S.todayKey());
+    const was = day.workoutDone;
+    day.workoutDone = !day.workoutDone;
+    if (day.workoutDone && !was && !f.workoutDoneXp) {
+      f.workoutDoneXp = true;
+      G.awardXp(game, G.XP_WORKOUT_DONE);
+    }
+    persist();
+    renderAll();
+    showToast(day.workoutDone ? 'Workout logged · +45 XP' : 'Workout undone');
+  });
+
+  els.formExercise.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = parseRequiredNonEmpty(els.exName.value, 'Exercise name');
+    if (!name) return;
+
+    const metCategory = els.exMet.value || 'other';
+    const durationMin = parsePositiveInt(els.exDuration.value, 'Active minutes');
+    if (durationMin === null) return;
+
+    const sets = parseNonNegativeInt(els.exSets.value, 'Sets');
+    if (sets === null) return;
+
+    const reps = parseNonNegativeInt(els.exReps.value, 'Reps');
+    if (reps === null) return;
+
+    const weight = parseNonNegativeNumber(els.exWeight.value, 'Weight');
+    if (weight === null) return;
+
+    const day = today();
+    const w = Math.round(weight * 10) / 10;
+
+    if (isDuplicateExercise(day, name, sets, reps, w, metCategory, durationMin)) {
+      showToast('That exercise line is already logged', true);
+      return;
+    }
+
+    day.exercises.push({
+      id: S.uid(),
+      name,
+      metCategory,
+      durationMin,
+      sets,
+      reps,
+      weight: w,
+      addedAt: Date.now(),
+    });
+    const game = G.ensureGame(data);
+    G.awardXp(game, G.XP_EXERCISE);
+    persist();
+    els.formExercise.reset();
+    renderAll();
+    const k = B.exerciseLineBurnKcal(day.exercises[day.exercises.length - 1], data.profile);
+    showToast(data.profile.weightKg > 0 ? `Set logged · ~${k} kcal · +22 XP` : `Set logged · +22 XP`);
+  });
+
+  if (els.btnExerciseInspire) {
+    els.btnExerciseInspire.addEventListener('click', async () => {
+      els.btnExerciseInspire.disabled = true;
+      try {
+        const n = await fetchRandomExerciseName();
+        els.exName.value = n;
+        showToast('Pulled from wger');
+      } catch {
+        showToast('Exercise API unavailable — type your own', true);
+      }
+      els.btnExerciseInspire.disabled = false;
+    });
+  }
+
+  els.btnChallengeClaim.addEventListener('click', () => {
+    const key = S.todayKey();
+    const day = today();
+    const totals = foodTotals(day);
+    const game = G.ensureGame(data);
+    const daily = G.ensureDailyChallenge(game, key);
+    const ctx = { day, totals, goals: data.goals };
+    if (daily.claimed || !G.isChallengeComplete(daily, ctx)) return;
+    daily.claimed = true;
+    G.awardXp(game, G.XP_CHALLENGE);
+    persist();
+    renderAll();
+    showToast(`Quest complete · +${G.XP_CHALLENGE} XP`);
+  });
+
+  els.modalClose.addEventListener('click', closeModal);
+  els.modalOverlay.addEventListener('click', (e) => {
+    if (e.target === els.modalOverlay) {
+      closeModal();
+    }
+  });
+
+  els.btnOpenSettings.addEventListener('click', openSettings);
+  els.btnBannerSettings.addEventListener('click', openSettings);
+  els.settingsClose.addEventListener('click', closeSettings);
+  els.settingsOverlay.addEventListener('click', (e) => {
+    if (e.target === els.settingsOverlay) {
+      closeSettings();
+    }
+  });
+
+  ['set-weight-kg', 'set-height', 'set-age', 'set-sex'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', updateBmrReadout);
+    document.getElementById(id).addEventListener('change', updateBmrReadout);
+  });
+
+  els.btnSaveSettings.addEventListener('click', () => {
+    const w = parseFloat(els.setWeightKg.value);
+    const h = parseFloat(els.setHeight.value);
+    const a = parseInt(els.setAge.value, 10);
+    data.profile.weightKg = Number.isFinite(w) && w >= 0 ? Math.round(w * 10) / 10 : 0;
+    data.profile.heightCm = Number.isFinite(h) && h >= 0 ? Math.round(h) : 0;
+    data.profile.age = Number.isFinite(a) && a >= 0 ? a : 0;
+    data.profile.sex = els.setSex.value;
+
+    const cg = parseInt(els.setCalGoal.value, 10);
+    const pg = parseInt(els.setProtGoal.value, 10);
+    const sg = parseInt(els.setStepGoal.value, 10);
+    const wg = parseInt(els.setWaterGoal.value, 10);
+
+    if (!Number.isFinite(cg) || cg < 500) {
+      showToast('Calorie target should be at least 500', true);
+      return;
+    }
+    if (!Number.isFinite(pg) || pg < 0) {
+      showToast('Invalid protein target', true);
+      return;
+    }
+    if (!Number.isFinite(sg) || sg < 0) {
+      showToast('Invalid step goal', true);
+      return;
+    }
+    if (!Number.isFinite(wg) || wg < 0) {
+      showToast('Invalid water goal', true);
+      return;
+    }
+
+    data.goals.calorieTarget = cg;
+    data.goals.proteinTargetG = pg;
+    data.goals.stepGoal = sg;
+    data.goals.waterGoalMl = wg;
+
+    persist();
+    closeSettings();
+    renderAll();
+    showToast('Settings saved');
+  });
+
+  async function updateSyncUI() {
+    const sb = S.supabase;
+    if (!sb) return;
+    const { data: { user } } = await sb.auth.getUser();
+    const indicator = els.syncStatus.querySelector('.status-indicator');
+    const text = els.syncStatus.querySelector('.status-text');
+
+    if (user) {
+      indicator.className = 'status-indicator online';
+      text.className = 'status-text online';
+      text.textContent = `Synced as ${user.email}`;
+      els.btnSyncLogin.hidden = true;
+      els.btnSyncLogout.hidden = false;
+    } else {
+      indicator.className = 'status-indicator';
+      text.className = 'status-text';
+      text.textContent = 'Not connected';
+      els.btnSyncLogin.hidden = false;
+      els.btnSyncLogout.hidden = true;
+    }
+  }
+
+  els.btnSyncLogin.addEventListener('click', async () => {
+    const sb = S.supabase;
+    if (!sb) {
+      showToast('Sync unavailable (Keys missing)', true);
+      return;
+    }
+    const email = prompt('Enter email:');
+    if (!email) return;
+    const password = prompt('Enter password:');
+    if (!password) return;
+
+    showToast('Connecting...');
+    const { data: authData, error } = await sb.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+      // If user doesn't exist, try signing up for ease of use in this personal tool
+      if (error.status === 400) {
+        if (confirm('Account not found. Create one with these credentials?')) {
+          const { error: signUpError } = await sb.auth.signUp({ email, password });
+          if (signUpError) {
+            showToast(signUpError.message, true);
+          } else {
+            showToast('Account created! Please check your email and login again.');
+          }
+        }
+      } else {
+        showToast(error.message, true);
+      }
+    } else {
+      showToast('Logged in! Syncing data...');
+      // Merge cloud data
+      const cloudData = await S.pullFromCloud();
+      if (cloudData) {
+        if (confirm('Found existing cloud data. Overwrite local progress?')) {
+          data = cloudData;
+          S.saveLocal(data);
+          renderAll();
+        } else {
+          // Push local data to cloud
+          S.pushToCloud(data);
+        }
+      } else {
+        // Initial push
+        S.pushToCloud(data);
+      }
+      updateSyncUI();
+    }
+  });
+
+  els.btnSyncLogout.addEventListener('click', async () => {
+    const sb = S.supabase;
+    if (!sb) return;
+    await sb.auth.signOut();
+    showToast('Logged out');
+    updateSyncUI();
+  });
+
+  els.btnExport.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `verotrack-backup-${S.todayKey()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded');
+  });
+
+  els.importFile.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed || typeof parsed !== 'object' || !parsed.days) {
+          showToast('Invalid backup file', true);
+          return;
+        }
+        if (!window.confirm('Replace all data with this backup?')) return;
+        localStorage.setItem(S.STORAGE_KEY, JSON.stringify(parsed));
+        data = S.load();
+        fillMetSelect();
+        renderAll();
+        showToast('Backup restored');
+        closeSettings();
+      } catch {
+        showToast('Could not read backup', true);
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  if (els.btnToggleBreakdown && els.panelBreakdown) {
+    els.btnToggleBreakdown.addEventListener('click', () => {
+      const open = els.panelBreakdown.hidden;
+      els.panelBreakdown.hidden = !open;
+      els.btnToggleBreakdown.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
+  if (els.btnTipRefresh) {
+    els.btnTipRefresh.addEventListener('click', () => {
+      loadTip();
+    });
+  }
+
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.tab-btn').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+        b.removeAttribute('aria-current');
+      });
+      btn.setAttribute('aria-current', 'page');
+
+      document.querySelectorAll('.tab-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.id === `tab-${tab}`);
+      });
+    });
+  });
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === S.STORAGE_KEY) {
+      data = S.load();
+      renderAll();
+    }
+  });
+
+  fillMetSelect();
+  updateStatusTime();
+  setInterval(updateStatusTime, 60000);
+  today();
+  renderAll();
+  loadTip();
+
+  if (S.supabase) {
+    S.supabase.auth.onAuthStateChange(() => {
+      updateSyncUI();
+    });
+    updateSyncUI();
+  }
+
+  /* Fix workout undone: allow XP again if they undo? User might exploit. Keep simple: flag prevents re-award same day */
+})();

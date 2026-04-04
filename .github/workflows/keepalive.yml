@@ -1,0 +1,25 @@
+# Pings your deployed site on a schedule so Render *web services* (not static sites) stay warm.
+# Static sites on Render/CDNs do not spin down — this is only needed if you wrap the app in a Node server.
+#
+# Setup: GitHub repo → Settings → Secrets → Actions → New secret
+#   Name:  LIVE_SITE_URL
+#   Value: https://your-app.onrender.com/   (or https://yoursite.com/health.txt)
+#
+name: Site keep-alive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: HTTP ping
+        env:
+          URL: ${{ secrets.LIVE_SITE_URL }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "Skip: set repository secret LIVE_SITE_URL to your public site URL."
+            exit 0
+          fi
+          curl -fsS -m 45 -L "$URL" -o /dev/null

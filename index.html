@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#030304" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="VeroTrack" />
+  <meta name="description" content="VeroTrack — personal fitness tracker." />
+  <title>VeroTrack</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div class="device-root">
+    <div class="device-shell" id="device-shell">
+      <header class="status-rail" aria-hidden="true">
+        <span class="status-rail__time" id="status-time">9:41</span>
+        <span class="status-rail__brand">VeroTrack</span>
+        <span class="status-rail__icons">
+          <span class="status-dot"></span>
+          <span class="status-wifi"></span>
+          <span class="status-bat"></span>
+        </span>
+      </header>
+
+      <main class="app">
+        <section id="tab-home" class="tab-panel active" aria-label="Home">
+          <div class="home-top">
+            <div>
+              <p class="home-greeting" id="home-greeting">Good day</p>
+              <p class="date-line date-line--home" id="home-date"></p>
+            </div>
+            <button type="button" class="btn-settings btn-settings--lux" id="btn-open-settings" aria-label="Settings"></button>
+          </div>
+
+          <p id="profile-banner" class="banner" hidden>
+            Add weight &amp; height for precise burn estimates.
+            <button type="button" class="banner__link" id="btn-banner-settings">Settings</button>
+          </p>
+
+          <article class="lux-card lux-card--xp">
+            <div class="xp-row">
+              <div>
+                <p class="xp-label">Progress</p>
+                <p class="xp-level"><span id="xp-level">1</span> <span class="xp-muted">·</span> <span id="xp-total">0</span> XP</p>
+              </div>
+              <div class="badges-mini" id="badges-mini" title="Achievements"></div>
+            </div>
+            <div class="xp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="xp-bar-wrap">
+              <div class="xp-bar__fill" id="xp-bar-fill"></div>
+            </div>
+            <p class="xp-next" id="xp-next">Next level in — XP</p>
+          </article>
+
+          <article class="lux-card lux-card--hero">
+            <p class="hero-eyebrow">Energy in</p>
+            <div class="meter-wrap">
+              <svg class="meter-svg" viewBox="0 0 220 220" aria-hidden="true">
+                <defs>
+                  <linearGradient id="meterGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#34d399" />
+                    <stop offset="100%" stop-color="#22d3ee" />
+                  </linearGradient>
+                </defs>
+                <circle class="meter-track" cx="110" cy="110" r="92" fill="none" stroke-width="14" />
+                <circle
+                  id="meter-arc"
+                  class="meter-arc"
+                  cx="110"
+                  cy="110"
+                  r="92"
+                  fill="none"
+                  stroke="url(#meterGrad)"
+                  stroke-width="14"
+                  stroke-linecap="round"
+                  transform="rotate(-90 110 110)"
+                />
+              </svg>
+              <div class="meter-center">
+                <span class="meter-kcal" id="meter-kcal">0</span>
+                <span class="meter-lbl">kcal</span>
+                <span class="meter-target" id="meter-target">of —</span>
+              </div>
+            </div>
+            <div class="hero-pills">
+              <div class="hero-pill">
+                <span class="hero-pill__lbl">Active burn</span>
+                <span class="hero-pill__val" id="hero-burn">0</span>
+                <span class="hero-pill__unit">kcal</span>
+              </div>
+              <div class="hero-pill hero-pill--accent">
+                <span class="hero-pill__lbl">Budget</span>
+                <span class="hero-pill__val" id="hero-budget">—</span>
+                <span class="hero-pill__unit">kcal</span>
+              </div>
+            </div>
+            <p class="hero-note" id="hero-footnote">Targets flex with activity you log.</p>
+          </article>
+
+          <div class="strip-scroll" role="list">
+            <article class="strip-card" role="listitem">
+              <span class="strip-card__lbl">Protein</span>
+              <span class="strip-card__val" id="strip-protein">0g</span>
+              <span class="strip-card__sub" id="strip-protein-pct">—</span>
+            </article>
+            <article class="strip-card" role="listitem">
+              <span class="strip-card__lbl">Steps</span>
+              <span class="strip-card__val" id="strip-steps">0</span>
+              <span class="strip-card__sub" id="strip-steps-pct">—</span>
+            </article>
+            <article class="strip-card" role="listitem">
+              <span class="strip-card__lbl">Water</span>
+              <span class="strip-card__val" id="strip-water">0</span>
+              <span class="strip-card__sub" id="strip-water-pct">—</span>
+            </article>
+            <article class="strip-card strip-card--wide" role="listitem" id="home-workout-card">
+              <span class="strip-card__lbl">Workout</span>
+              <span class="strip-card__val strip-card__val--status" id="home-workout">Pending</span>
+            </article>
+          </div>
+
+          <article class="lux-card lux-card--quest" id="challenge-card">
+            <div class="quest-head">
+              <span class="quest-badge">Quest</span>
+              <span class="quest-status" id="challenge-status">In progress</span>
+            </div>
+            <p class="quest-title" id="challenge-title">Daily quest</p>
+            <p class="quest-desc" id="challenge-desc"></p>
+            <button type="button" class="btn btn-primary btn-block btn--compact" id="btn-challenge-claim" hidden>
+              Claim +55 XP
+            </button>
+          </article>
+
+          <article class="lux-card lux-card--tip">
+            <div class="tip-head">
+              <span class="tip-label">Signal</span>
+              <button type="button" class="tip-refresh" id="btn-tip-refresh" aria-label="New tip">↻</button>
+            </div>
+            <p class="tip-body" id="tip-text">Pulling a fresh insight…</p>
+            <p class="tip-source" id="tip-source"></p>
+            <p class="tip-loading" id="tip-loading" hidden>Updating…</p>
+          </article>
+
+          <article class="lux-card">
+            <button type="button" class="accordion-btn" id="btn-toggle-breakdown" aria-expanded="false">
+              <span>Metabolic detail</span>
+              <span class="accordion-chev">⌄</span>
+            </button>
+            <div class="accordion-panel" id="panel-breakdown" hidden>
+              <ul class="breakdown-list breakdown-list--tight">
+                <li>
+                  <span class="breakdown-list__lbl">Walking</span>
+                  <span class="breakdown-list__val" id="burn-walk">0 kcal</span>
+                </li>
+                <li>
+                  <span class="breakdown-list__lbl">Training</span>
+                  <span class="breakdown-list__val" id="burn-train">0 kcal</span>
+                </li>
+                <li class="breakdown-list__total">
+                  <span class="breakdown-list__lbl">Resting (est.)</span>
+                  <span class="breakdown-list__val" id="burn-rest">—</span>
+                </li>
+              </ul>
+            </div>
+          </article>
+
+          <div class="grid-2 grid-2--tight">
+            <article class="card card-stat card-stat--mini">
+              <span class="card-label">Supplements</span>
+              <span class="card-value card-value--sm" id="home-supplements">0 / 0</span>
+            </article>
+            <article class="card card-stat card-stat--mini">
+              <span class="card-label">Streak</span>
+              <span class="card-value card-value--sm"><span id="home-streak-num">0</span><span class="unit">d</span></span>
+            </article>
+          </div>
+          <p class="streak-caption" id="home-streak">Workout streak</p>
+
+          <!-- legacy IDs for app.js food totals sync (hidden helpers) -->
+          <span id="home-protein" hidden></span>
+          <span id="home-steps" hidden></span>
+          <span id="home-water" hidden></span>
+          <span id="hero-in" hidden></span>
+          <span id="ring-cal" hidden style="--p: 0"></span>
+          <span id="ring-cal-pct" hidden></span>
+          <span id="ring-prot" hidden style="--p: 0"></span>
+          <span id="ring-prot-pct" hidden></span>
+          <span id="ring-steps" hidden style="--p: 0"></span>
+          <span id="ring-steps-pct" hidden></span>
+        </section>
+
+        <section id="tab-log" class="tab-panel" aria-label="Log">
+          <header class="screen-header screen-header--tab">
+            <h1 class="screen-title">Log</h1>
+          </header>
+
+          <article class="lux-card">
+            <h2 class="card-title">Food</h2>
+            <form id="form-food" class="form-stack">
+              <label class="field">
+                <span>What did you eat?</span>
+                <input type="text" id="food-name" name="name" autocomplete="off" placeholder="e.g. Salmon bowl" />
+              </label>
+              <div class="form-row">
+                <label class="field">
+                  <span>Calories</span>
+                  <input type="number" id="food-calories" name="calories" inputmode="numeric" min="0" step="1" placeholder="0" />
+                </label>
+                <label class="field">
+                  <span>Protein (g)</span>
+                  <input type="number" id="food-protein" name="protein" inputmode="decimal" min="0" step="0.1" placeholder="0" />
+                </label>
+              </div>
+              <button type="submit" class="btn btn-primary">Add entry</button>
+            </form>
+
+            <div class="list-section">
+              <h3 class="list-heading">Today</h3>
+              <ul id="food-list" class="entry-list"></ul>
+              <p id="food-empty" class="empty-state">No food logged today</p>
+            </div>
+          </article>
+
+          <article class="lux-card">
+            <h2 class="card-title">Steps</h2>
+            <p class="card-hint">Powers walking burn with your height from Settings.</p>
+            <form id="form-steps" class="form-row form-row--steps">
+              <label class="field field--grow">
+                <span>Steps today</span>
+                <input type="number" id="steps-input" inputmode="numeric" min="0" step="1" placeholder="0" />
+              </label>
+              <button type="submit" class="btn btn-secondary">Save</button>
+            </form>
+          </article>
+
+          <article class="lux-card">
+            <h2 class="card-title">Water</h2>
+            <p class="water-total"><span id="water-total">0</span> <span class="unit-muted">/ goal ml</span></p>
+            <div class="chip-row" id="water-chips">
+              <button type="button" class="chip" data-ml="250">+250</button>
+              <button type="button" class="chip" data-ml="500">+500</button>
+              <button type="button" class="chip" data-ml="750">+750</button>
+            </div>
+            <form id="form-water-custom" class="form-inline form-inline--mt">
+              <input type="number" id="water-custom" inputmode="numeric" min="0" step="50" placeholder="Custom ml" />
+              <button type="submit" class="btn btn-ghost">Add</button>
+            </form>
+          </article>
+
+          <article class="lux-card">
+            <h2 class="card-title">Supplements</h2>
+            <ul id="supplement-list" class="toggle-list"></ul>
+            <form id="form-supplement-custom" class="form-inline">
+              <input type="text" id="supplement-new" autocomplete="off" placeholder="Custom supplement" />
+              <button type="submit" class="btn btn-ghost">Add</button>
+            </form>
+          </article>
+        </section>
+
+        <section id="tab-workout" class="tab-panel" aria-label="Workout">
+          <header class="screen-header screen-header--tab">
+            <h1 class="screen-title">Train</h1>
+          </header>
+
+          <article class="lux-card">
+            <div class="workout-burn-pill">
+              <span class="workout-burn-pill__lbl">Training burn</span>
+              <span class="workout-burn-pill__val" id="workout-tab-burn">0 kcal</span>
+            </div>
+            <button type="button" id="btn-workout-toggle" class="btn btn-primary btn-block">Mark workout done</button>
+            <p id="workout-hint" class="hint"></p>
+          </article>
+
+          <article class="lux-card">
+            <h2 class="card-title">Exercises</h2>
+            <p class="card-hint">MET × weight × minutes. Idea below is live from wger (open API).</p>
+            <button type="button" class="btn btn-secondary btn-block btn--compact" id="btn-exercise-inspire">
+              Random exercise idea
+            </button>
+            <form id="form-exercise" class="form-stack">
+              <label class="field">
+                <span>Name</span>
+                <input type="text" id="ex-name" autocomplete="off" placeholder="e.g. Romanian deadlift" />
+              </label>
+              <label class="field">
+                <span>Training style</span>
+                <select id="ex-met" class="select"></select>
+              </label>
+              <label class="field">
+                <span>Active minutes</span>
+                <input type="number" id="ex-duration" inputmode="numeric" min="1" step="1" placeholder="Minutes" />
+              </label>
+              <div class="form-row form-row-3">
+                <label class="field">
+                  <span>Sets</span>
+                  <input type="number" id="ex-sets" inputmode="numeric" min="0" step="1" placeholder="0" />
+                </label>
+                <label class="field">
+                  <span>Reps</span>
+                  <input type="number" id="ex-reps" inputmode="numeric" min="0" step="1" placeholder="0" />
+                </label>
+                <label class="field">
+                  <span>Weight</span>
+                  <input type="number" id="ex-weight" inputmode="decimal" min="0" step="0.5" placeholder="0" />
+                </label>
+              </div>
+              <button type="submit" class="btn btn-secondary">Add to log</button>
+            </form>
+
+            <div class="list-section">
+              <h3 class="list-heading">Today</h3>
+              <ul id="exercise-list" class="entry-list"></ul>
+              <p id="exercise-empty" class="empty-state">No workout yet</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="tab-history" class="tab-panel" aria-label="History">
+          <header class="screen-header screen-header--tab">
+            <h1 class="screen-title">History</h1>
+          </header>
+
+          <article class="lux-card lux-card--subtle">
+            <h2 class="card-title">Last 7 days</h2>
+            <div class="week-chart" id="week-chart" aria-label="Weekly activity chart"></div>
+            <p class="week-summary" id="week-summary"></p>
+          </article>
+
+          <h2 class="section-label">Archive</h2>
+          <ul id="history-list" class="history-list"></ul>
+          <p id="history-empty" class="empty-state">No past days yet</p>
+        </section>
+      </main>
+
+      <nav class="tab-bar tab-bar--lux" aria-label="Main navigation">
+        <button type="button" class="tab-btn active" data-tab="home" aria-current="page">
+          <span class="tab-icon tab-icon--home" aria-hidden="true"></span>
+          <span>Home</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="log">
+          <span class="tab-icon tab-icon--log" aria-hidden="true"></span>
+          <span>Log</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="workout">
+          <span class="tab-icon tab-icon--workout" aria-hidden="true"></span>
+          <span>Train</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="history">
+          <span class="tab-icon tab-icon--history" aria-hidden="true"></span>
+          <span>History</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <header class="modal-header">
+        <h2 id="modal-title">Day details</h2>
+        <button type="button" class="btn-icon" id="modal-close" aria-label="Close">×</button>
+      </header>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="settings-overlay" class="modal-overlay modal-overlay--sheet" hidden>
+    <div class="modal modal--sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="sheet-grab" aria-hidden="true"></div>
+      <header class="modal-header">
+        <h2 id="settings-title">Settings</h2>
+        <button type="button" class="btn-icon" id="settings-close" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body modal-body--settings">
+        <section class="settings-block">
+          <h3>Body</h3>
+          <p class="settings-note">For BMR and training burn.</p>
+          <div class="form-row">
+            <label class="field">
+              <span>Weight (kg)</span>
+              <input type="number" id="set-weight-kg" inputmode="decimal" min="0" step="0.1" placeholder="e.g. 75" />
+            </label>
+            <label class="field">
+              <span>Height (cm)</span>
+              <input type="number" id="set-height" inputmode="numeric" min="0" step="1" placeholder="e.g. 178" />
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="field">
+              <span>Age</span>
+              <input type="number" id="set-age" inputmode="numeric" min="0" step="1" placeholder="Years" />
+            </label>
+            <label class="field">
+              <span>Sex</span>
+              <select id="set-sex" class="select">
+                <option value="x">Prefer not to say</option>
+                <option value="m">Male</option>
+                <option value="f">Female</option>
+              </select>
+            </label>
+          </div>
+          <p class="settings-readout" id="bmr-readout"></p>
+        </section>
+
+        <section class="settings-block">
+          <h3>Targets</h3>
+          <div class="form-row">
+            <label class="field">
+              <span>Calories</span>
+              <input type="number" id="set-cal-goal" inputmode="numeric" min="0" step="50" />
+            </label>
+            <label class="field">
+              <span>Protein (g)</span>
+              <input type="number" id="set-prot-goal" inputmode="numeric" min="0" step="1" />
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="field">
+              <span>Steps</span>
+              <input type="number" id="set-step-goal" inputmode="numeric" min="0" step="500" />
+            </label>
+            <label class="field">
+              <span>Water (ml)</span>
+              <input type="number" id="set-water-goal" inputmode="numeric" min="0" step="100" />
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-block">
+          <h3>Cloud Sync</h3>
+          <p class="settings-note">Keep your progress for 10+ years across devies.</p>
+          <div id="sync-status" class="sync-status">
+            <span class="status-indicator"></span>
+            <span class="status-text">Not connected</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" id="btn-sync-login">Login to Sync</button>
+          <button type="button" class="btn btn-ghost btn-block" id="btn-sync-logout" hidden>Logout</button>
+        </section>
+
+        <section class="settings-block">
+          <h3>Data</h3>
+          <div class="settings-actions">
+            <button type="button" class="btn btn-secondary btn-block" id="btn-export">Export backup</button>
+            <label class="btn btn-secondary btn-block btn-file">
+              Import backup
+              <input type="file" id="import-file" accept="application/json" hidden />
+            </label>
+          </div>
+        </section>
+
+        <button type="button" class="btn btn-primary btn-block" id="btn-save-settings">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/burn.js"></script>
+  <script src="js/gamify.js"></script>
+  <script src="js/tips.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
