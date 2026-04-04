@@ -3,8 +3,40 @@
   const B = window.VeroTrackBurn;
   const G = window.VeroTrackGamify;
   const T = window.VeroTrackTips;
+  const Auth = window.VeroTrackAuth;
 
-  let data = S.load();
+  let data = null;
+  let isInitialized = false;
+
+  async function initializeApp() {
+    try {
+      // Check authentication first
+      const isAuthenticated = await Auth.isAuthenticated();
+      if (!isAuthenticated) {
+        // Auth UI will handle showing the login screen
+        return;
+      }
+
+      // Get current user email
+      const email = await Auth.getCurrentUser();
+      
+      // Load user data
+      data = await S.load(email);
+
+      isInitialized = true;
+      startApp();
+    } catch (err) {
+      console.error('Failed to load user data:', err);
+      data = S.migrate(null);
+    }
+  }
+
+  function startApp() {
+    // Original app initialization code continues here...
+  }
+
+  // Initialize app on page load
+  document.addEventListener('DOMContentLoaded', initializeApp);
 
   const METER_R = 92;
   const METER_LEN = 2 * Math.PI * METER_R;
@@ -132,8 +164,14 @@
     }, 2600);
   }
 
-  function persist() {
-    if (!S.save(data)) {
+  async function persist() {
+    try {
+      const email = await Auth.getCurrentUser();
+      if (!await S.save(data, email)) {
+        showToast('Could not save data', true);
+      }
+    } catch (e) {
+      console.error('Persist error:', e);
       showToast('Could not save data', true);
     }
   }
@@ -1117,6 +1155,35 @@
     renderAll();
     showToast('Settings saved');
   });
+
+  // Logout button handler
+  els.btnLogout = els.btnLogout || document.getElementById('btn-logout');
+  if (els.btnLogout) {
+    els.btnLogout.addEventListener('click', async () => {
+      const confirmed = confirm('Sign out and clear device memory? You will need to sign in again.');
+      if (!confirmed) return;
+      
+      Auth.logout();
+      closeSettings();
+      showToast('Signed out. Redirecting...');
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    });
+  }
+
+  // Display current user email
+  async function updateAuthUI() {
+    const email = await Auth.getCurrentUser();
+    const emailEl = document.getElementById('auth-email');
+    if (emailEl) {
+      emailEl.textContent = email || 'Unknown';
+    }
+  }
+
+  // Call on startup
+  updateAuthUI();
 
   async function updateSyncUI() {
     const sb = S.supabase;

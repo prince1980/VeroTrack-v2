@@ -432,13 +432,20 @@
         </section>
 
         <section class="settings-block">
+          <h3>Account</h3>
+          <p class="settings-note">Logged in as <span id="auth-email">loading...</span></p>
+          <p class="settings-note" id="device-memory">🍪 This device is remembered for next time</p>
+          <button type="button" class="btn btn-ghost btn-block" id="btn-logout">Sign out</button>
+        </section>
+
+        <section class="settings-block">
           <h3>Cloud Sync</h3>
-          <p class="settings-note">Keep your progress for 10+ years across devies.</p>
+          <p class="settings-note">Keep your progress for 10+ years across devices.</p>
           <div id="sync-status" class="sync-status">
             <span class="status-indicator"></span>
             <span class="status-text">Not connected</span>
           </div>
-          <button type="button" class="btn btn-primary btn-block" id="btn-sync-login">Login to Sync</button>
+          <button type="button" class="btn btn-primary btn-block" id="btn-sync-login" hidden>Login to Sync</button>
           <button type="button" class="btn btn-ghost btn-block" id="btn-sync-logout" hidden>Logout</button>
         </section>
 
@@ -459,12 +466,19 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/auth.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/burn.js"></script>
   <script src="js/gamify.js"></script>
   <script src="js/tips.js"></script>
+  <script src="js/login-ui.js"></script>
   <script src="js/app.js"></script>
   <script>
+    // Initialize authentication and app
+    if (window.VeroTrackUI && window.VeroTrackUI.initAuth) {
+      window.VeroTrackUI.initAuth();
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('./sw.js').catch(function () {});

@@ -1,6 +1,8 @@
 (function () {
   const STORAGE_KEY = 'verotrack_v1';
   const VERSION = 4; // Incremented for cloud sync meta
+  const DATA_DB_NAME = 'VeroTrackData';
+  const DATA_STORE_NAME = 'userdata';
 
   const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
   const SUPABASE_KEY = 'YOUR_ANON_KEY';
@@ -8,6 +10,24 @@
   let supabaseClient = null;
   if (typeof supabase !== 'undefined') {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+
+  let dataDB = null;
+
+  // Initialize data IndexedDB for per-user storage
+  async function initDataDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DATA_DB_NAME, 1);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(DATA_STORE_NAME)) {
+          const store = db.createObjectStore(DATA_STORE_NAME, { keyPath: 'email' });
+          store.createIndex('email', 'email', { unique: true });
+        }
+      };
+    });
   }
 
   const DEFAULT_SUPPLEMENT_NAMES = ['Creatine', 'Protein', 'Fish Oil', 'Multivitamin'];
@@ -88,6 +108,41 @@
     }
   }
 
+  // Load data from IndexedDB for current user
+  async function loadFromDB(email) {
+    if (!dataDB) dataDB = await initDataDB();
+    return new Promise((resolve, reject) => {
+      const tx = dataDB.transaction([DATA_STORE_NAME], 'readonly');
+      const store = tx.objectStore(DATA_STORE_NAME);
+      const req = store.get(email);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const result = req.result;
+        if (result && result.payload) {
+          resolve(result.payload);
+        } else {
+          resolve(null);
+        }
+      };
+    });
+  }
+
+  // Save data to IndexedDB for current user
+  async function saveToDB(email, data) {
+    if (!dataDB) dataDB = await initDataDB();
+    return new Promise((resolve, reject) => {
+      const tx = dataDB.transaction([DATA_STORE_NAME], 'readwrite');
+      const store = tx.objectStore(DATA_STORE_NAME);
+      const req = store.put({
+        email,
+        payload: data,
+        updatedAt: new Date().toISOString()
+      });
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(true);
+    });
+  }
+
   function migrate(data) {
     if (!data || typeof data !== 'object') {
       return {
@@ -112,8 +167,22 @@
     return data;
   }
 
-  function load() {
-    return migrate(loadRaw());
+  async function load(email) {
+    // If email is not provided, use logged-in user
+    if (!email && typeof window.VeroTrackAuth !== 'undefined') {
+      email = await window.VeroTrackAuth.getCurrentUser();
+    }
+
+    if (!email) {
+      return migrate(null);
+    }
+
+    try {
+      const data = await loadFromDB(email);
+      return migrate(data);
+    } catch {
+      return migrate(null);
+    }
   }
 
   function saveLocal(data) {
@@ -125,21 +194,37 @@
     }
   }
 
-  // --- Supabase Sync Logic ---
+  async function save(data, email) {
+    // If email is not provided, use logged-in user
+    if (!email && typeof window.VeroTrackAuth !== 'undefined') {
+      email = await window.VeroTrackAuth.getCurrentUser();
+    }
 
-  async function pushToCloud(data) {
-    if (!supabaseClient) return;
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) return;
+    if (!email) {
+      // Fallback to localStorage if no user
+      return saveLocal(data);
+    }
 
     try {
-      // We store the entire payload as a single row for simplicity in this V2 migration
-      // In a real production app, we'd split tables, but for "keeps data for 10 years" 
-      // a JSONB blob in Postgres is very robust.
+      await saveToDB(email, data);
+      // Also try to push to cloud
+      pushToCloud(data, email);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // --- Supabase Sync Logic ---
+
+  async function pushToCloud(data, email) {
+    if (!supabaseClient || !email) return;
+
+    try {
       const { error } = await supabaseClient
         .from('user_data')
         .upsert({ 
-          id: user.id, 
+          email,
           payload: data,
           updated_at: new Date().toISOString()
         });
@@ -152,33 +237,22 @@
     }
   }
 
-  async function pullFromCloud() {
-    if (!supabaseClient) return null;
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) return null;
+  async function pullFromCloud(email) {
+    if (!supabaseClient || !email) return null;
 
     try {
       const { data, error } = await supabaseClient
         .from('user_data')
         .select('payload')
-        .eq('id', user.id)
+        .eq('email', email)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
+      if (error && error.code !== 'PGRST116') throw error;
       return data ? data.payload : null;
     } catch (e) {
       console.error('Pull failed:', e);
       return null;
     }
-  }
-
-  async function save(data) {
-    const ok = saveLocal(data);
-    if (ok) {
-      // Async push - triggers in background
-      pushToCloud(data);
-    }
-    return ok;
   }
 
   function ensureCatalogIds(catalog, supplementState) {
