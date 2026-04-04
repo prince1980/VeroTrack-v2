@@ -1723,7 +1723,7 @@ body {
   box-shadow: 0 0 0 4px rgba(156, 163, 175, 0.1);
 }
 
-.status-indicator.online {
+.status-indicator.connected {
   background: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-soft);
   animation: pulse-green 2s infinite;
@@ -1740,7 +1740,7 @@ body {
   color: var(--text-muted);
 }
 
-.status-text.online {
+.sync-status.connected .status-text {
   color: var(--accent);
 }
 

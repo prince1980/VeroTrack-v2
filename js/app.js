@@ -1193,17 +1193,19 @@
     const text = els.syncStatus.querySelector('.status-text');
 
     if (user) {
-      indicator.className = 'status-indicator online';
-      text.className = 'status-text online';
+      indicator.className = 'status-indicator connected';
+      text.className = 'status-text';
       text.textContent = `Synced as ${user.email}`;
       els.btnSyncLogin.hidden = true;
       els.btnSyncLogout.hidden = false;
+      els.syncStatus.classList.add('connected');
     } else {
       indicator.className = 'status-indicator';
       text.className = 'status-text';
       text.textContent = 'Not connected';
       els.btnSyncLogin.hidden = false;
       els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.remove('connected');
     }
   }
 
@@ -1213,46 +1215,16 @@
       showToast('Sync unavailable (Keys missing)', true);
       return;
     }
-    const email = prompt('Enter email:');
-    if (!email) return;
-    const password = prompt('Enter password:');
-    if (!password) return;
+    showToast('Opening Google sync login...');
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.href,
+      },
+    });
 
-    showToast('Connecting...');
-    const { data: authData, error } = await sb.auth.signInWithPassword({ email, password });
-    
     if (error) {
-      // If user doesn't exist, try signing up for ease of use in this personal tool
-      if (error.status === 400) {
-        if (confirm('Account not found. Create one with these credentials?')) {
-          const { error: signUpError } = await sb.auth.signUp({ email, password });
-          if (signUpError) {
-            showToast(signUpError.message, true);
-          } else {
-            showToast('Account created! Please check your email and login again.');
-          }
-        }
-      } else {
-        showToast(error.message, true);
-      }
-    } else {
-      showToast('Logged in! Syncing data...');
-      // Merge cloud data
-      const cloudData = await S.pullFromCloud();
-      if (cloudData) {
-        if (confirm('Found existing cloud data. Overwrite local progress?')) {
-          data = cloudData;
-          S.saveLocal(data);
-          renderAll();
-        } else {
-          // Push local data to cloud
-          S.pushToCloud(data);
-        }
-      } else {
-        // Initial push
-        S.pushToCloud(data);
-      }
-      updateSyncUI();
+      showToast(error.message || 'Could not start sync login', true);
     }
   });
 
@@ -1345,8 +1317,22 @@
   loadTip();
 
   if (S.supabase) {
-    S.supabase.auth.onAuthStateChange(() => {
+    S.supabase.auth.onAuthStateChange(async () => {
       updateSyncUI();
+
+      const email = await Auth.getCurrentUser();
+      if (!email) return;
+
+      const cloudData = await S.pullFromCloud(email);
+      if (cloudData && Object.keys(data.days || {}).length === 0) {
+        await S.save(cloudData, email);
+        data = await S.load(email);
+        renderAll();
+        showToast('Cloud data restored');
+        return;
+      }
+
+      await S.pushToCloud(data, email);
     });
     updateSyncUI();
   }
