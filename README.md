@@ -47,3 +47,23 @@ If something looks stuck on an old version, change the `CACHE` line at the top o
 ## Keepalive workflow
 
 The separate `keepalive` workflow is only for **Render-style web servers** that spin down. **You don’t need it for GitHub Pages.**
+
+## Cloud Sync Setup (Supabase)
+
+Run this once to make Cloud Sync fully live end-to-end:
+
+1. Create a Supabase project.
+2. In Supabase, open **Authentication -> Providers -> Google** and enable Google sign-in.
+3. In Supabase, open **SQL Editor** and run [supabase/schema.sql](supabase/schema.sql).
+4. In [js/supabase-config.js](js/supabase-config.js), set your real values:
+	- `url`: your project URL (for example `https://xxxx.supabase.co`)
+	- `anonKey`: your project anon public key
+5. In Supabase **Authentication -> URL Configuration**, add your site URL as allowed redirect URL:
+	- `https://YOUR_USERNAME.github.io/YOUR_REPO/`
+6. Push to GitHub Pages.
+
+How this works now:
+
+- Sync writes one row per authenticated user in `public.user_data`.
+- Row ownership is enforced by RLS with `auth.uid() = user_id`.
+- Local app user email is checked against cloud session email before sync.

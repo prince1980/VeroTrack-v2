@@ -3,12 +3,24 @@
   const VERSION = 4; // Incremented for cloud sync meta
   const DATA_DB_NAME = 'VeroTrackData';
   const DATA_STORE_NAME = 'userdata';
+  const CLOUD_TABLE = 'user_data';
 
-  const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-  const SUPABASE_KEY = 'YOUR_ANON_KEY';
+  const SUPABASE_CONFIG = window.VEROTRACK_SUPABASE || {};
+  const SUPABASE_URL = SUPABASE_CONFIG.url || '';
+  const SUPABASE_KEY = SUPABASE_CONFIG.anonKey || '';
+
+  function hasSupabaseConfig() {
+    return (
+      typeof SUPABASE_URL === 'string' &&
+      SUPABASE_URL.startsWith('https://') &&
+      SUPABASE_URL.includes('.supabase.co') &&
+      typeof SUPABASE_KEY === 'string' &&
+      SUPABASE_KEY.length > 20
+    );
+  }
 
   let supabaseClient = null;
-  if (typeof supabase !== 'undefined') {
+  if (typeof supabase !== 'undefined' && hasSupabaseConfig()) {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   }
 
@@ -217,16 +229,47 @@
 
   // --- Supabase Sync Logic ---
 
+  async function getCloudIdentity(expectedEmail) {
+    if (!supabaseClient) return null;
+
+    try {
+      const {
+        data: { user },
+        error,
+      } = await supabaseClient.auth.getUser();
+
+      if (error || !user || !user.id) return null;
+
+      const cloudEmail = (user.email || '').toLowerCase();
+      const localEmail = String(expectedEmail || '').toLowerCase();
+
+      if (localEmail && cloudEmail && localEmail !== cloudEmail) {
+        return null;
+      }
+
+      return {
+        userId: user.id,
+        email: user.email || expectedEmail || '',
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async function pushToCloud(data, email) {
-    if (!supabaseClient || !email) return;
+    const identity = await getCloudIdentity(email);
+    if (!identity) return false;
 
     try {
       const { error } = await supabaseClient
-        .from('user_data')
+        .from(CLOUD_TABLE)
         .upsert({ 
-          email,
+          user_id: identity.userId,
+          email: identity.email,
           payload: data,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
         });
       
       if (error) throw error;
@@ -238,13 +281,14 @@
   }
 
   async function pullFromCloud(email) {
-    if (!supabaseClient || !email) return null;
+    const identity = await getCloudIdentity(email);
+    if (!identity) return null;
 
     try {
       const { data, error } = await supabaseClient
-        .from('user_data')
+        .from(CLOUD_TABLE)
         .select('payload')
-        .eq('email', email)
+        .eq('user_id', identity.userId)
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -279,6 +323,7 @@
     saveLocal,
     ensureCatalogIds,
     supabase: supabaseClient,
+    supabaseConfigured: hasSupabaseConfig(),
     pushToCloud,
     pullFromCloud
   };
