@@ -1,5 +1,5 @@
 /* Bump CACHE when you change CSS/JS so phones pick up updates. */
-const CACHE = 'verotrack-v2026-04-05-8';
+const CACHE = 'verotrack-v2026-04-05-9';
 
 function scopeUrl(path) {
   return new URL(path, self.registration.scope).href;

@@ -1220,12 +1220,85 @@
   // Call on startup
   updateAuthUI();
 
+  async function canReachCloudAuth() {
+    const cfg = window.VEROTRACK_SUPABASE || {};
+    const baseUrl = typeof cfg.url === 'string' ? cfg.url : '';
+    if (!baseUrl) return false;
+    if (typeof fetch === 'undefined') return true;
+
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 7000);
+
+    try {
+      await fetch(baseUrl + '/auth/v1/health', {
+        method: 'GET',
+        cache: 'no-store',
+        mode: 'no-cors',
+        signal: ctrl.signal,
+      });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function getCloudUserSafe(sb) {
+    const timeoutResult = new Promise((resolve) => {
+      setTimeout(() => resolve({ user: null, timedOut: true }), 6500);
+    });
+
+    try {
+      const result = await Promise.race([
+        sb.auth.getUser().then(({ data }) => ({
+          user: (data && data.user) || null,
+          timedOut: false,
+        })),
+        timeoutResult,
+      ]);
+      return result;
+    } catch {
+      return { user: null, timedOut: false, failed: true };
+    }
+  }
+
   async function updateSyncUI() {
     const sb = S.supabase;
-    if (!sb) return;
-    const { data: { user } } = await sb.auth.getUser();
     const indicator = els.syncStatus.querySelector('.status-indicator');
     const text = els.syncStatus.querySelector('.status-text');
+
+    if (!sb) {
+      indicator.className = 'status-indicator';
+      text.className = 'status-text';
+      text.textContent = 'Sync unavailable';
+      els.btnSyncLogin.hidden = true;
+      els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.remove('connected');
+      return;
+    }
+
+    const reachable = await canReachCloudAuth();
+    if (!reachable) {
+      indicator.className = 'status-indicator';
+      text.className = 'status-text';
+      text.textContent = 'Cloud auth unreachable';
+      els.btnSyncLogin.hidden = false;
+      els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.remove('connected');
+      return;
+    }
+
+    const { user, timedOut } = await getCloudUserSafe(sb);
+    if (timedOut) {
+      indicator.className = 'status-indicator';
+      text.className = 'status-text';
+      text.textContent = 'Cloud auth timeout';
+      els.btnSyncLogin.hidden = false;
+      els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.remove('connected');
+      return;
+    }
 
     if (user) {
       indicator.className = 'status-indicator connected';
@@ -1246,29 +1319,65 @@
 
   els.btnSyncLogin.addEventListener('click', async () => {
     const sb = S.supabase;
-    if (!sb) {
-      showToast('Sync unavailable (Keys missing)', true);
-      return;
-    }
-    showToast('Opening Google sync login...');
-    const { error } = await sb.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.href,
-      },
-    });
+    const originalText = els.btnSyncLogin.textContent;
+    els.btnSyncLogin.disabled = true;
+    els.btnSyncLogin.textContent = 'Opening...';
 
-    if (error) {
-      showToast(error.message || 'Could not start sync login', true);
+    try {
+      if (!sb) {
+        throw new Error('Sync unavailable (keys missing)');
+      }
+
+      // Reuse hardened Google flow with reachability checks and stable redirect URL.
+      if (Auth && typeof Auth.loginWithGoogle === 'function') {
+        await Auth.loginWithGoogle();
+        return;
+      }
+
+      const redirectTo = window.location.origin + window.location.pathname;
+      const { data: oauthData, error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Could not start sync login');
+      }
+
+      if (!oauthData || !oauthData.url) {
+        throw new Error('Cloud auth URL was not generated');
+      }
+
+      window.location.assign(oauthData.url);
+    } catch (err) {
+      showToast((err && err.message) || 'Could not start sync login', true);
+      await updateSyncUI();
+    } finally {
+      els.btnSyncLogin.disabled = false;
+      els.btnSyncLogin.textContent = originalText;
     }
   });
 
   els.btnSyncLogout.addEventListener('click', async () => {
     const sb = S.supabase;
     if (!sb) return;
-    await sb.auth.signOut();
-    showToast('Logged out');
-    updateSyncUI();
+    const originalText = els.btnSyncLogout.textContent;
+    els.btnSyncLogout.disabled = true;
+    els.btnSyncLogout.textContent = 'Logging out...';
+
+    try {
+      await sb.auth.signOut();
+      showToast('Logged out');
+      await updateSyncUI();
+    } catch (err) {
+      showToast((err && err.message) || 'Could not log out from cloud', true);
+    } finally {
+      els.btnSyncLogout.disabled = false;
+      els.btnSyncLogout.textContent = originalText;
+    }
   });
 
   els.btnExport.addEventListener('click', () => {
