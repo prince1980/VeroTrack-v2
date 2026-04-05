@@ -3,12 +3,46 @@
   const GOOGLE_CLIENT_ID = '701285139211-1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p.apps.googleusercontent.com'; // Replace with your Google OAuth ID
   const AUTH_COOKIE_NAME = 'vt_auth_device';
   const USER_EMAIL_COOKIE_NAME = 'vt_user_email';
-  const AUTH_STORAGE_KEY = 'vt_auth';
   const USERS_DB_NAME = 'VeroTrackUsers';
   const USERS_STORE_NAME = 'users';
 
   let currentUser = null;
   let authDB = null;
+
+  function normalizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+  }
+
+  function getSupabaseClient() {
+    const cfg = window.VEROTRACK_SUPABASE || {};
+    if (
+      typeof window.supabase === 'undefined' ||
+      !cfg.url ||
+      !cfg.anonKey
+    ) {
+      return null;
+    }
+
+    try {
+      return window.supabase.createClient(cfg.url, cfg.anonKey);
+    } catch {
+      return null;
+    }
+  }
+
+  async function getSupabaseUser() {
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    try {
+      const {
+        data: { user },
+      } = await client.auth.getUser();
+      return user || null;
+    } catch {
+      return null;
+    }
+  }
 
   // Initialize IndexedDB for multi-user support
   async function initDB() {
@@ -91,6 +125,7 @@
 
   // Register new user
   async function register(email, password) {
+    email = normalizeEmail(email);
     if (!email || !password) throw new Error('Email and password required');
     if (password.length < 6) throw new Error('Password must be at least 6 characters');
 
@@ -106,6 +141,7 @@
 
   // Login with email/password
   async function login(email, password) {
+    email = normalizeEmail(email);
     if (!email || !password) throw new Error('Email and password required');
 
     const user = await getUser(email);
@@ -126,7 +162,7 @@
       if (parts.length !== 3) throw new Error('Invalid token format');
       
       const payload = JSON.parse(atob(parts[1]));
-      const email = payload.email;
+      const email = normalizeEmail(payload.email);
       
       if (!email) throw new Error('No email in token');
 
@@ -146,8 +182,30 @@
     }
   }
 
+  // Sign in with Google using Supabase OAuth
+  async function loginWithGoogle() {
+    const client = getSupabaseClient();
+    if (!client) {
+      throw new Error('Google sign-in is not configured yet');
+    }
+
+    const { error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.href,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Could not start Google sign-in');
+    }
+
+    return { success: true };
+  }
+
   // Set current user and save device cookie
   function setCurrentUser(email) {
+    email = normalizeEmail(email);
     currentUser = email;
     setCookie(USER_EMAIL_COOKIE_NAME, email, 365);
     setCookie(AUTH_COOKIE_NAME, crypto.randomUUID(), 365); // Device token
@@ -161,11 +219,27 @@
     // Check cookie for remembered device
     const rememberedEmail = getCookie(USER_EMAIL_COOKIE_NAME);
     if (rememberedEmail) {
-      const user = await getUser(rememberedEmail);
+      const normalizedRememberedEmail = normalizeEmail(rememberedEmail);
+      const user = await getUser(normalizedRememberedEmail);
       if (user) {
-        currentUser = rememberedEmail;
+        currentUser = normalizedRememberedEmail;
         return currentUser;
       }
+    }
+
+    // If user returned from Supabase Google OAuth, bind that session to local auth
+    const supabaseUser = await getSupabaseUser();
+    if (supabaseUser && supabaseUser.email) {
+      const email = normalizeEmail(supabaseUser.email);
+      let localUser = await getUser(email);
+      if (!localUser) {
+        localUser = await storeUser(email, 'supabase_oauth', {
+          name: supabaseUser.user_metadata && supabaseUser.user_metadata.full_name,
+          picture: supabaseUser.user_metadata && supabaseUser.user_metadata.avatar_url,
+        });
+      }
+      setCurrentUser(email);
+      return email;
     }
 
     return null;
@@ -189,6 +263,7 @@
   window.VeroTrackAuth = {
     register,
     login,
+    loginWithGoogle,
     handleGoogleSignIn,
     logout,
     getCurrentUser,

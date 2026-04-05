@@ -94,8 +94,21 @@
       margin-bottom: 24px;
     }
 
-    .google-btn-container > div {
-      display: flex !important;
+    .btn-google {
+      width: 100%;
+      padding: 13px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255, 255, 255, 0.06);
+      color: #f3f4f6;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-google:hover {
+      background: rgba(255, 255, 255, 0.12);
     }
 
     .login-divider {
@@ -236,7 +249,9 @@
 
     <!-- Google Sign-In -->
     <div class="login-section">
-      <div id="google-signin-btn" class="google-btn-container"></div>
+      <div class="google-btn-container">
+        <button type="button" id="btn-google-signin" class="btn-google">Continue with Google</button>
+      </div>
     </div>
 
     <!-- Divider -->
@@ -286,7 +301,6 @@
     <p class="login-footer">Join thousands tracking their fitness 💪</p>
   </div>
 
-  <script src="https://accounts.google.com/gsi/client" async defer><\/script>
   <script>
     // Tab switching
     document.querySelectorAll('.login-tab-btn').forEach(btn => {
@@ -311,6 +325,10 @@
       e.preventDefault();
       const email = document.getElementById('signin-email').value;
       const password = document.getElementById('signin-password').value;
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalLabel = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in...';
       
       try {
         await window.VeroTrackAuth.login(email, password);
@@ -318,6 +336,9 @@
         setTimeout(() => window.location.reload(), 800);
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalLabel;
       }
     });
 
@@ -327,11 +348,16 @@
       const email = document.getElementById('signup-email').value;
       const password = document.getElementById('signup-password').value;
       const confirm = document.getElementById('signup-password-confirm').value;
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalLabel = submitBtn.textContent;
       
       if (password !== confirm) {
         showToast('Passwords do not match', true);
         return;
       }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating...';
       
       try {
         await window.VeroTrackAuth.register(email, password);
@@ -339,52 +365,27 @@
         setTimeout(() => window.location.reload(), 800);
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalLabel;
       }
     });
 
-    // Google Sign-In Setup
-    function setupGoogleSignIn() {
-      if (!window.google) {
-        setTimeout(setupGoogleSignIn, 100);
-        return;
-      }
-
-      const clientId = window.VeroTrackAuth.GOOGLE_CLIENT_ID;
-      if (!clientId || clientId.includes('YOUR')) {
-        console.log('ℹ️ Google Client ID not configured. Using email/password only.');
-        return;
-      }
+    // Google Sign-In (Supabase OAuth)
+    document.getElementById('btn-google-signin').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Opening Google...';
 
       try {
-        google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async (response) => {
-            try {
-              await window.VeroTrackAuth.handleGoogleSignIn(response);
-              showToast('✓ Signed in with Google!');
-              setTimeout(() => window.location.reload(), 800);
-            } catch (err) {
-              showToast(err.message, true);
-            }
-          }
-        });
-
-        google.accounts.id.renderButton(
-          document.getElementById('google-signin-btn'),
-          {
-            theme: 'dark',
-            size: 'large',
-            text: 'continue_with'
-          }
-        );
-      } catch (e) {
-        console.error('Google Sign-In setup error:', e);
+        await window.VeroTrackAuth.loginWithGoogle();
+      } catch (err) {
+        showToast(err.message || 'Google sign-in failed', true);
+        btn.disabled = false;
+        btn.textContent = originalLabel;
       }
-    }
-
-    // Setup when libraries load
-    window.addEventListener('load', setupGoogleSignIn);
-    setupGoogleSignIn(); // Try immediately in case already loaded
+    });
   </script>
 </body>
 </html>`;
