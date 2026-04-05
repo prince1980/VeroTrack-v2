@@ -1,5 +1,5 @@
 /* Bump CACHE when you change CSS/JS so phones pick up updates. */
-const CACHE = 'verotrack-v2026-04-05-2';
+const CACHE = 'verotrack-v2026-04-05-3';
 
 function scopeUrl(path) {
   return new URL(path, self.registration.scope).href;
@@ -8,6 +8,9 @@ function scopeUrl(path) {
 const PRECACHE_PATHS = [
   'index.html',
   'css/styles.css',
+  'js/auth.js',
+  'js/login-ui.js',
+  'js/supabase-config.js',
   'js/storage.js',
   'js/burn.js',
   'js/gamify.js',
