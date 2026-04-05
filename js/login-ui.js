@@ -95,6 +95,41 @@
         background: rgba(255,255,255,0.12);
       }
 
+      .vt-google-fallback {
+        margin-top: 10px;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(250, 204, 21, 0.35);
+        background: rgba(250, 204, 21, 0.08);
+      }
+
+      .vt-google-fallback p {
+        margin: 0 0 8px;
+        color: #fde68a;
+        font-size: 12px;
+      }
+
+      .vt-google-fallback input {
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 10px 11px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.16);
+        background: rgba(15, 52, 96, 0.5);
+        color: #fff;
+      }
+
+      .vt-google-fallback button {
+        width: 100%;
+        border: none;
+        border-radius: 8px;
+        background: rgba(250, 204, 21, 0.9);
+        color: #111827;
+        font-weight: 700;
+        padding: 10px;
+        cursor: pointer;
+      }
+
       .vt-login-divider {
         display: flex;
         align-items: center;
@@ -249,6 +284,11 @@
         ${localModeWarning}
 
         <button type="button" id="vt-btn-google" class="vt-login-google">Continue with Google</button>
+        <div id="vt-google-fallback" class="vt-google-fallback" hidden>
+          <p>Cloud Google is unreachable. Continue locally with your Gmail:</p>
+          <input type="email" id="vt-google-fallback-email" placeholder="you@gmail.com" autocomplete="email" />
+          <button type="button" id="vt-btn-google-local">Continue locally</button>
+        </div>
 
         <div class="vt-login-divider"><span>or email</span></div>
 
@@ -296,6 +336,9 @@
     const signInForm = document.getElementById('vt-form-signin');
     const signUpForm = document.getElementById('vt-form-signup');
     const googleBtn = document.getElementById('vt-btn-google');
+    const googleFallback = document.getElementById('vt-google-fallback');
+    const googleFallbackEmail = document.getElementById('vt-google-fallback-email');
+    const googleFallbackBtn = document.getElementById('vt-btn-google-local');
 
     tabs.forEach((tabBtn) => {
       tabBtn.addEventListener('click', () => {
@@ -367,8 +410,28 @@
         await Auth.loginWithGoogle();
       } catch (err) {
         showToast(err.message || 'Google sign-in failed', true);
+        if (googleFallback) {
+          googleFallback.hidden = false;
+        }
         googleBtn.disabled = false;
         googleBtn.textContent = originalText;
+      }
+    });
+
+    googleFallbackBtn.addEventListener('click', async () => {
+      const email = googleFallbackEmail.value;
+      const originalText = googleFallbackBtn.textContent;
+      googleFallbackBtn.disabled = true;
+      googleFallbackBtn.textContent = 'Continuing...';
+
+      try {
+        await Auth.loginWithGoogleLocal(email);
+        showToast('Signed in locally with Gmail. Loading...');
+        setTimeout(() => window.location.reload(), 500);
+      } catch (err) {
+        showToast(err.message || 'Local Google fallback failed', true);
+        googleFallbackBtn.disabled = false;
+        googleFallbackBtn.textContent = originalText;
       }
     });
   }

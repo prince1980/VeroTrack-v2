@@ -84,6 +84,28 @@
     }
   }
 
+  async function canReachUrl(url) {
+    if (!url) return false;
+    if (typeof fetch === 'undefined') return true;
+
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 7000);
+
+    try {
+      await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        mode: 'no-cors',
+        signal: ctrl.signal,
+      });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   function getSupabaseClient() {
     const cfg = window.VEROTRACK_SUPABASE || {};
     if (
@@ -236,7 +258,9 @@
     if (!email || !password) throw new Error('Email and password required');
 
     const user = await getUser(email);
-    if (!user) throw new Error('User not found');
+    if (!user) {
+      return register(email, password);
+    }
 
     const passwordHash = await hashPassword(password);
     if (passwordHash !== user.passwordHash) throw new Error('Invalid password');
@@ -286,10 +310,11 @@
       throw new Error('Cannot reach cloud auth right now. Check internet/VPN/firewall or Supabase status.');
     }
 
-    const { error } = await client.auth.signInWithOAuth({
+    const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: getAppRedirectUrl(),
+        skipBrowserRedirect: true,
       },
     });
 
@@ -297,7 +322,36 @@
       throw new Error(error.message || 'Could not start Google sign-in');
     }
 
+    const authUrl = data && data.url;
+    if (!authUrl) {
+      throw new Error('Cloud auth URL was not generated');
+    }
+
+    const authUrlReachable = await canReachUrl(authUrl);
+    if (!authUrlReachable) {
+      throw new Error('Cloud Google auth is unreachable from your network right now');
+    }
+
+    window.location.assign(authUrl);
+
     return { success: true };
+  }
+
+  async function loginWithGoogleLocal(email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized || !normalized.endsWith('@gmail.com')) {
+      throw new Error('Enter a valid Gmail address');
+    }
+
+    let user = await getUser(normalized);
+    if (!user) {
+      user = await storeUser(normalized, 'google_local_fallback', {
+        provider: 'google-local',
+      });
+    }
+
+    setCurrentUser(normalized);
+    return { success: true, email: normalized, localFallback: true };
   }
 
   // Set current user and save device cookie
@@ -373,6 +427,7 @@
     register,
     login,
     loginWithGoogle,
+    loginWithGoogleLocal,
     handleGoogleSignIn,
     logout,
     getCurrentUser,
