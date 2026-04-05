@@ -482,7 +482,13 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('./sw.js').catch(function () {});
+        var swVersion = '2026-04-05-8';
+        navigator.serviceWorker
+          .register('./sw.js?v=' + swVersion)
+          .then(function (registration) {
+            registration.update().catch(function () {});
+          })
+          .catch(function () {});
       });
     }
   </script>
