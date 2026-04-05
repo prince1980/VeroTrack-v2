@@ -2,6 +2,6 @@
 // Safe to expose in frontend: URL + anon key are public credentials.
 // Replace with your real project values.
 window.VEROTRACK_SUPABASE = {
-  url: 'https://YOUR_PROJECT_ID.supabase.co',
-  anonKey: 'YOUR_REAL_ANON_KEY'
+  url: 'https://nhxkuppugjxtbmeimqyq.supabase.co',
+  anonKey: 'sb_publishable_7ihTP84sdeKancFDaCep5w_ysBVwOMy'
 };
