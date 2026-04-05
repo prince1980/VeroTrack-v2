@@ -203,6 +203,16 @@
         color: #64748b;
         font-size: 12px;
       }
+
+      .vt-login-warning {
+        margin: 0 0 14px;
+        padding: 10px 12px;
+        border: 1px solid rgba(248, 113, 113, 0.45);
+        border-radius: 9px;
+        background: rgba(239, 68, 68, 0.12);
+        color: #fecaca;
+        font-size: 12px;
+      }
     `;
 
     document.head.appendChild(style);
@@ -222,6 +232,11 @@
   function renderLoginUI() {
     ensureLoginStyles();
     document.body.className = 'vt-login-active';
+    const isLocalFile = window.location && window.location.protocol === 'file:';
+    const localModeWarning = isLocalFile
+      ? '<p class="vt-login-warning">You are running local file mode. Use the live site URL for full auth and cloud sync.</p>'
+      : '';
+
     document.body.innerHTML = `
       <div class="vt-login-wrap">
         <div class="vt-login-header">
@@ -231,6 +246,7 @@
         </div>
 
         <div id="vt-toast" class="vt-toast"></div>
+        ${localModeWarning}
 
         <button type="button" id="vt-btn-google" class="vt-login-google">Continue with Google</button>
 
