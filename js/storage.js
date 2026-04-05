@@ -120,6 +120,30 @@
     }
   }
 
+  function emailStorageKey(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    return `${STORAGE_KEY}__${encodeURIComponent(normalized)}`;
+  }
+
+  function loadLocalByEmail(email) {
+    try {
+      const raw = localStorage.getItem(emailStorageKey(email));
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  function saveLocalByEmail(data, email) {
+    try {
+      localStorage.setItem(emailStorageKey(email), JSON.stringify(data));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // Load data from IndexedDB for current user
   async function loadFromDB(email) {
     if (!dataDB) dataDB = await initDataDB();
@@ -186,14 +210,20 @@
     }
 
     if (!email) {
-      return migrate(null);
+      return migrate(loadRaw());
     }
 
     try {
-      const data = await loadFromDB(email);
-      return migrate(data);
-    } catch {
+      const dbData = await loadFromDB(email);
+      if (dbData) return migrate(dbData);
+
+      const localData = loadLocalByEmail(email);
+      if (localData) return migrate(localData);
+
       return migrate(null);
+    } catch {
+      const localData = loadLocalByEmail(email);
+      return migrate(localData || null);
     }
   }
 
@@ -219,11 +249,12 @@
 
     try {
       await saveToDB(email, data);
+      saveLocalByEmail(data, email);
       // Also try to push to cloud
       pushToCloud(data, email);
       return true;
     } catch {
-      return false;
+      return saveLocalByEmail(data, email);
     }
   }
 

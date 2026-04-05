@@ -3,6 +3,8 @@
   const GOOGLE_CLIENT_ID = '701285139211-1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p.apps.googleusercontent.com'; // Replace with your Google OAuth ID
   const AUTH_COOKIE_NAME = 'vt_auth_device';
   const USER_EMAIL_COOKIE_NAME = 'vt_user_email';
+  const SESSION_STORAGE_KEY = 'vt_session_email';
+  const LOCAL_USERS_KEY = 'vt_local_users';
   const USERS_DB_NAME = 'VeroTrackUsers';
   const USERS_STORE_NAME = 'users';
 
@@ -11,6 +13,75 @@
 
   function normalizeEmail(email) {
     return String(email || '').trim().toLowerCase();
+  }
+
+  function safeStorageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function safeStorageRemove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // no-op
+    }
+  }
+
+  function loadLocalUsers() {
+    try {
+      const raw = safeStorageGet(LOCAL_USERS_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveLocalUsers(users) {
+    return safeStorageSet(LOCAL_USERS_KEY, JSON.stringify(users));
+  }
+
+  function getAppRedirectUrl() {
+    if (window.location && /^https?:$/i.test(window.location.protocol)) {
+      return window.location.origin + window.location.pathname;
+    }
+    return 'https://prince1980.github.io/VeroTrack-v2/';
+  }
+
+  async function canReachSupabase(baseUrl) {
+    if (!baseUrl) return false;
+    if (typeof fetch === 'undefined') return true;
+
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 7000);
+
+    try {
+      await fetch(baseUrl + '/auth/v1/health', {
+        method: 'GET',
+        cache: 'no-store',
+        mode: 'no-cors',
+        signal: ctrl.signal,
+      });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   function getSupabaseClient() {
@@ -35,9 +106,12 @@
     if (!client) return null;
 
     try {
-      const {
-        data: { user },
-      } = await client.auth.getUser();
+      const timeoutUser = new Promise((resolve) => {
+        setTimeout(() => resolve({ data: { user: null } }), 4000);
+      });
+
+      const result = await Promise.race([client.auth.getUser(), timeoutUser]);
+      const user = result && result.data && result.data.user;
       return user || null;
     } catch {
       return null;
@@ -94,33 +168,50 @@
 
   // Store user in IndexedDB
   async function storeUser(email, passwordHash, profile = {}) {
-    if (!authDB) authDB = await initDB();
-    return new Promise((resolve, reject) => {
-      const tx = authDB.transaction([USERS_STORE_NAME], 'readwrite');
-      const store = tx.objectStore(USERS_STORE_NAME);
-      const user = {
-        email,
-        passwordHash,
-        createdAt: new Date().toISOString(),
-        profile,
-        deviceToken: crypto.randomUUID(),
-      };
-      const req = store.put(user);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(user);
-    });
+    email = normalizeEmail(email);
+
+    const user = {
+      email,
+      passwordHash,
+      createdAt: new Date().toISOString(),
+      profile,
+      deviceToken: crypto.randomUUID(),
+    };
+
+    try {
+      if (!authDB) authDB = await initDB();
+      return await new Promise((resolve, reject) => {
+        const tx = authDB.transaction([USERS_STORE_NAME], 'readwrite');
+        const store = tx.objectStore(USERS_STORE_NAME);
+        const req = store.put(user);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(user);
+      });
+    } catch {
+      const users = loadLocalUsers();
+      users[email] = user;
+      saveLocalUsers(users);
+      return user;
+    }
   }
 
   // Get user from IndexedDB
   async function getUser(email) {
-    if (!authDB) authDB = await initDB();
-    return new Promise((resolve, reject) => {
-      const tx = authDB.transaction([USERS_STORE_NAME], 'readonly');
-      const store = tx.objectStore(USERS_STORE_NAME);
-      const req = store.get(email);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
+    email = normalizeEmail(email);
+
+    try {
+      if (!authDB) authDB = await initDB();
+      return await new Promise((resolve, reject) => {
+        const tx = authDB.transaction([USERS_STORE_NAME], 'readonly');
+        const store = tx.objectStore(USERS_STORE_NAME);
+        const req = store.get(email);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      });
+    } catch {
+      const users = loadLocalUsers();
+      return users[email] || null;
+    }
   }
 
   // Register new user
@@ -189,10 +280,16 @@
       throw new Error('Google sign-in is not configured yet');
     }
 
+    const cfg = window.VEROTRACK_SUPABASE || {};
+    const reachable = await canReachSupabase(cfg.url);
+    if (!reachable) {
+      throw new Error('Cannot reach cloud auth right now. Check internet/VPN/firewall or Supabase status.');
+    }
+
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.href,
+        redirectTo: getAppRedirectUrl(),
       },
     });
 
@@ -207,6 +304,7 @@
   function setCurrentUser(email) {
     email = normalizeEmail(email);
     currentUser = email;
+    safeStorageSet(SESSION_STORAGE_KEY, email);
     setCookie(USER_EMAIL_COOKIE_NAME, email, 365);
     setCookie(AUTH_COOKIE_NAME, crypto.randomUUID(), 365); // Device token
     window.dispatchEvent(new CustomEvent('auth-changed', { detail: { email, isLoggedIn: true } }));
@@ -215,6 +313,16 @@
   // Get current user
   async function getCurrentUser() {
     if (currentUser) return currentUser;
+
+    // Session fallback for environments where cookies are restricted
+    const sessionEmail = normalizeEmail(safeStorageGet(SESSION_STORAGE_KEY));
+    if (sessionEmail) {
+      const user = await getUser(sessionEmail);
+      if (user) {
+        currentUser = sessionEmail;
+        return currentUser;
+      }
+    }
 
     // Check cookie for remembered device
     const rememberedEmail = getCookie(USER_EMAIL_COOKIE_NAME);
@@ -248,6 +356,7 @@
   // Logout
   function logout() {
     currentUser = null;
+    safeStorageRemove(SESSION_STORAGE_KEY);
     deleteCookie(USER_EMAIL_COOKIE_NAME);
     deleteCookie(AUTH_COOKIE_NAME);
     window.dispatchEvent(new CustomEvent('auth-changed', { detail: { email: null, isLoggedIn: false } }));
