@@ -7,6 +7,7 @@
 
   let data = null;
   let isInitialized = false;
+  let statusTimer = null;
 
   async function initializeApp() {
     try {
@@ -27,12 +28,46 @@
       startApp();
     } catch (err) {
       console.error('Failed to load user data:', err);
-      data = S.migrate(null);
+      const email = await Auth.getCurrentUser();
+      data = await S.load(email);
+      isInitialized = true;
+      startApp();
     }
   }
 
   function startApp() {
-    // Original app initialization code continues here...
+    if (!isInitialized || startApp._started) return;
+    startApp._started = true;
+
+    fillMetSelect();
+    updateStatusTime();
+    if (!statusTimer) {
+      statusTimer = setInterval(updateStatusTime, 60000);
+    }
+    today();
+    renderAll();
+    loadTip();
+
+    if (S.supabase) {
+      S.supabase.auth.onAuthStateChange(async () => {
+        updateSyncUI();
+
+        const email = await Auth.getCurrentUser();
+        if (!email) return;
+
+        const cloudData = await S.pullFromCloud(email);
+        if (cloudData && Object.keys(data.days || {}).length === 0) {
+          await S.save(cloudData, email);
+          data = await S.load(email);
+          renderAll();
+          showToast('Cloud data restored');
+          return;
+        }
+
+        await S.pushToCloud(data, email);
+      });
+      updateSyncUI();
+    }
   }
 
   // Initialize app on page load
@@ -1252,7 +1287,7 @@
     e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const parsed = JSON.parse(reader.result);
         if (!parsed || typeof parsed !== 'object' || !parsed.days) {
@@ -1260,8 +1295,15 @@
           return;
         }
         if (!window.confirm('Replace all data with this backup?')) return;
-        localStorage.setItem(S.STORAGE_KEY, JSON.stringify(parsed));
-        data = S.load();
+
+        const email = await Auth.getCurrentUser();
+        if (!email) {
+          showToast('No active account found', true);
+          return;
+        }
+
+        await S.save(parsed, email);
+        data = await S.load(email);
         fillMetSelect();
         renderAll();
         showToast('Backup restored');
@@ -1302,40 +1344,13 @@
     });
   });
 
-  window.addEventListener('storage', (e) => {
+  window.addEventListener('storage', async (e) => {
     if (e.key === S.STORAGE_KEY) {
-      data = S.load();
+      const email = await Auth.getCurrentUser();
+      data = await S.load(email);
       renderAll();
     }
   });
-
-  fillMetSelect();
-  updateStatusTime();
-  setInterval(updateStatusTime, 60000);
-  today();
-  renderAll();
-  loadTip();
-
-  if (S.supabase) {
-    S.supabase.auth.onAuthStateChange(async () => {
-      updateSyncUI();
-
-      const email = await Auth.getCurrentUser();
-      if (!email) return;
-
-      const cloudData = await S.pullFromCloud(email);
-      if (cloudData && Object.keys(data.days || {}).length === 0) {
-        await S.save(cloudData, email);
-        data = await S.load(email);
-        renderAll();
-        showToast('Cloud data restored');
-        return;
-      }
-
-      await S.pushToCloud(data, email);
-    });
-    updateSyncUI();
-  }
 
   /* Fix workout undone: allow XP again if they undo? User might exploit. Keep simple: flag prevents re-award same day */
 })();
