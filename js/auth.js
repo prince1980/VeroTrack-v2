@@ -452,6 +452,11 @@
       throw new Error('Google sign-in is not configured yet');
     }
 
+    const reachable = await probeCloudReachable(true);
+    if (!reachable) {
+      throw new Error('Google cloud auth is unreachable right now. Use local sign-in on this device.');
+    }
+
     try {
       const { data, error } = await withTimeout(
         client.auth.signInWithOAuth({

@@ -315,7 +315,7 @@
 
         <button type="button" id="vt-btn-google" class="vt-login-google">Continue with Google</button>
         <div id="vt-google-fallback" class="vt-google-fallback" hidden>
-          <p>Cloud Google is unreachable. Continue locally with your Gmail:</p>
+          <p>Google cloud auth is down. Continue locally with your Gmail on this device:</p>
           <input type="email" id="vt-google-fallback-email" placeholder="you@gmail.com" autocomplete="email" />
           <button type="button" id="vt-btn-google-local">Continue locally</button>
         </div>
@@ -377,6 +377,7 @@
       if (!cfg.url || !cfg.anonKey) {
         if (cloudDot) cloudDot.classList.remove('on');
         if (cloudText) cloudText.textContent = 'Cloud auth not configured';
+        if (googleFallback) googleFallback.hidden = false;
         return;
       }
 
@@ -396,9 +397,11 @@
         });
         if (cloudDot) cloudDot.classList.toggle('on', !!res);
         if (cloudText) cloudText.textContent = res ? 'Cloud auth reachable' : 'Cloud auth unavailable';
+        if (googleFallback) googleFallback.hidden = !!res;
       } catch {
         if (cloudDot) cloudDot.classList.remove('on');
         if (cloudText) cloudText.textContent = 'Cloud auth unreachable';
+        if (googleFallback) googleFallback.hidden = false;
       } finally {
         if (timer) clearTimeout(timer);
       }
