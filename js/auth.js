@@ -42,12 +42,13 @@
     }
   }
 
-  function savePendingCloudAuth(email, password) {
+  function savePendingCloudAuth(email, password, intent) {
     const normalized = normalizeEmail(email);
     if (!normalized || !password) return;
     const payload = {
       email: normalized,
       password: String(password),
+      intent: intent === 'signup' ? 'signup' : 'signin',
       ts: Date.now(),
     };
     safeStorageSet(PENDING_CLOUD_AUTH_KEY, JSON.stringify(payload));
@@ -68,6 +69,7 @@
       }
       const email = normalizeEmail(parsed.email);
       const password = typeof parsed.password === 'string' ? parsed.password : '';
+      const intent = parsed.intent === 'signup' ? 'signup' : 'signin';
       const ts = Number(parsed.ts);
       if (!email || !password || !Number.isFinite(ts)) {
         clearPendingCloudAuth();
@@ -77,7 +79,7 @@
         clearPendingCloudAuth();
         return null;
       }
-      return { email, password, ts };
+      return { email, password, intent, ts };
     } catch {
       clearPendingCloudAuth();
       return null;
@@ -151,6 +153,25 @@
     );
   }
 
+  function isRateLimitError(err) {
+    const msg = String((err && err.message) || '').toLowerCase();
+    return msg.includes('rate limit') || msg.includes('too many requests');
+  }
+
+  function isUserNotFoundLikeError(err) {
+    const msg = String((err && err.message) || '').toLowerCase();
+    return (
+      msg.includes('invalid login credentials') ||
+      msg.includes('user not found') ||
+      msg.includes('email not confirmed')
+    );
+  }
+
+  function isUserExistsLikeError(err) {
+    const msg = String((err && err.message) || '').toLowerCase();
+    return msg.includes('already registered') || msg.includes('already been registered');
+  }
+
   function isCloudMarkerHash(passwordHash) {
     return (
       passwordHash === 'supabase_email' ||
@@ -173,7 +194,7 @@
 
   async function loginUsingLocalFallback(email, password) {
     const normalized = normalizeEmail(email);
-    savePendingCloudAuth(normalized, password);
+    savePendingCloudAuth(normalized, password, 'signin');
     const user = await getUser(normalized);
     if (!user) {
       const passwordHash = await hashPassword(password);
@@ -330,6 +351,7 @@
 
     const sb = getSupabaseClient();
     if (sb) {
+      savePendingCloudAuth(normalized, password, 'signup');
       try {
         const { error } = await withTimeout(
           sb.auth.signUp({
@@ -374,21 +396,40 @@
 
         throw new Error('Account created but cloud session is not active yet. Verify email if required.');
       } catch (err) {
-        if (!isNetworkLikeError(err)) throw err;
-
         const existing = await getUser(normalized);
         if (existing) {
-          throw new Error('Cloud is down right now. Use Sign in for this device account.');
+          const passwordHash = await hashPassword(password);
+          if (!isCloudMarkerHash(existing.passwordHash) && existing.passwordHash !== passwordHash) {
+            throw new Error('Account already exists on this device. Use Sign in.');
+          }
+          setCurrentUser(normalized);
+          return {
+            success: true,
+            email: normalized,
+            cloud: false,
+            offline: true,
+            mode: 'local_existing_register',
+          };
         }
 
-        const passwordHash = await hashPassword(password);
-        await storeUser(normalized, passwordHash, {
-          provider: 'local_offline',
-          cloudPending: true,
-        });
-        setCurrentUser(normalized);
-        savePendingCloudAuth(normalized, password);
-        return { success: true, email: normalized, cloud: false, offline: true, mode: 'local_register' };
+        if (isNetworkLikeError(err) || isRateLimitError(err)) {
+          const passwordHash = await hashPassword(password);
+          await storeUser(normalized, passwordHash, {
+            provider: isRateLimitError(err) ? 'local_rate_limited' : 'local_offline',
+            cloudPending: true,
+          });
+          setCurrentUser(normalized);
+          savePendingCloudAuth(normalized, password, 'signup');
+          return {
+            success: true,
+            email: normalized,
+            cloud: false,
+            offline: true,
+            mode: isRateLimitError(err) ? 'local_register_rate_limited' : 'local_register',
+          };
+        }
+
+        throw err;
       }
     }
 
@@ -424,7 +465,7 @@
 
         throw new Error((error && error.message) || 'Cloud login failed');
       } catch (err) {
-        if (isNetworkLikeError(err)) {
+        if (isNetworkLikeError(err) || isRateLimitError(err)) {
           return loginUsingLocalFallback(normalized, password);
         }
         throw err;
@@ -526,8 +567,75 @@
       );
 
       if (error || !data || !data.user || !data.user.email) {
-        if (error && !isNetworkLikeError(error)) {
-          clearPendingCloudAuth();
+        if (error && isRateLimitError(error)) {
+          return { ok: false, reason: 'rate_limited', message: error.message || '' };
+        }
+
+        if (error && pending.intent === 'signup' && isUserNotFoundLikeError(error)) {
+          try {
+            const signupTry = await withTimeout(
+              client.auth.signUp({
+                email: pending.email,
+                password: pending.password,
+                options: {
+                  emailRedirectTo: getAppRedirectUrl(),
+                },
+              }),
+              CLOUD_CALL_TIMEOUT_MS,
+              'Cloud signup timed out'
+            );
+
+            if (signupTry && signupTry.error) {
+              if (isRateLimitError(signupTry.error)) {
+                return { ok: false, reason: 'rate_limited', message: signupTry.error.message || '' };
+              }
+              if (!isUserExistsLikeError(signupTry.error) && !isNetworkLikeError(signupTry.error)) {
+                clearPendingCloudAuth();
+              }
+            }
+
+            const signInAfterSignup = await withTimeout(
+              client.auth.signInWithPassword({
+                email: pending.email,
+                password: pending.password,
+              }),
+              CLOUD_CALL_TIMEOUT_MS,
+              'Cloud sign-in timed out'
+            );
+
+            if (
+              signInAfterSignup &&
+              !signInAfterSignup.error &&
+              signInAfterSignup.data &&
+              signInAfterSignup.data.user &&
+              signInAfterSignup.data.user.email
+            ) {
+              await saveCloudBackedLocalCredentials(
+                signInAfterSignup.data.user.email,
+                pending.password,
+                'supabase_email'
+              );
+              clearPendingCloudAuth();
+              setCurrentUser(signInAfterSignup.data.user.email);
+              return { ok: true, email: signInAfterSignup.data.user.email };
+            }
+          } catch (innerErr) {
+            if (isRateLimitError(innerErr)) {
+              return { ok: false, reason: 'rate_limited', message: innerErr.message || '' };
+            }
+            if (!isNetworkLikeError(innerErr)) {
+              clearPendingCloudAuth();
+            }
+            return { ok: false, reason: 'request_failed', message: (innerErr && innerErr.message) || '' };
+          }
+        }
+
+        if (error && !isNetworkLikeError(error) && !isRateLimitError(error)) {
+          if (pending.intent === 'signup' && isUserNotFoundLikeError(error)) {
+            // keep pending so next resume can retry signup.
+          } else {
+            clearPendingCloudAuth();
+          }
         }
         return { ok: false, reason: 'auth_failed', message: (error && error.message) || '' };
       }

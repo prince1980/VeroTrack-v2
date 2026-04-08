@@ -425,7 +425,7 @@
       const email = document.getElementById('vt-signin-email').value;
       const password = document.getElementById('vt-signin-password').value;
       if (Auth && typeof Auth.queueCloudCredentials === 'function') {
-        Auth.queueCloudCredentials(email, password);
+        Auth.queueCloudCredentials(email, password, 'signin');
       }
 
       submitBtn.disabled = true;
@@ -460,7 +460,7 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Creating...';
       if (Auth && typeof Auth.queueCloudCredentials === 'function') {
-        Auth.queueCloudCredentials(email, password);
+        Auth.queueCloudCredentials(email, password, 'signup');
       }
 
       try {
