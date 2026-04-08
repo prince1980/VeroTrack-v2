@@ -1754,7 +1754,7 @@
     }
 
     const timeoutResult = new Promise((resolve) => {
-      setTimeout(() => resolve({ session: null, timedOut: true }), 2600);
+      setTimeout(() => resolve({ session: null, timedOut: true }), 7000);
     });
 
     try {
@@ -1890,6 +1890,22 @@
     try {
       if (!sb) {
         throw new Error('Sync unavailable (keys missing)');
+      }
+
+      // Try password-based auto resume first if pending credentials exist.
+      if (Auth && typeof Auth.tryResumeCloudSession === 'function') {
+        const resumed = await Auth.tryResumeCloudSession();
+        if (resumed && resumed.ok) {
+          syncSessionCache = {
+            checkedAt: Date.now(),
+            session: null,
+            timedOut: false,
+            failed: false,
+          };
+          await updateSyncUI();
+          showToast('Cloud sync connected');
+          return;
+        }
       }
 
       // Reuse hardened Google flow with reachability checks and stable redirect URL.

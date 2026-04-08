@@ -7,17 +7,11 @@
   const PENDING_CLOUD_AUTH_MAX_AGE_MS = 1000 * 60 * 60 * 8; // 8h
   const USERS_DB_NAME = 'VeroTrackUsers';
   const USERS_STORE_NAME = 'users';
-  const CLOUD_REACHABILITY_CACHE_MS = 45000;
-  const CLOUD_PROBE_TIMEOUT_MS = 2200;
   const CLOUD_CALL_TIMEOUT_MS = 9000;
 
   let currentUser = null;
   let authDB = null;
   let currentUserPromise = null;
-  let cloudProbeState = {
-    checkedAt: 0,
-    reachable: null,
-  };
 
   function normalizeEmail(email) {
     return String(email || '').trim().toLowerCase();
@@ -207,62 +201,14 @@
     return { success: true, email: normalized, cloud: false, offline: true, mode: 'local_password' };
   }
 
-  async function probeCloudReachable(force) {
-    const now = Date.now();
-    if (
-      !force &&
-      cloudProbeState.reachable !== null &&
-      now - cloudProbeState.checkedAt < CLOUD_REACHABILITY_CACHE_MS
-    ) {
-      return cloudProbeState.reachable;
-    }
-
-    const cfg = window.VEROTRACK_SUPABASE || {};
-    if (!cfg.url || !cfg.anonKey) {
-      cloudProbeState = { checkedAt: now, reachable: false };
-      return false;
-    }
-
-    const probeUrl = `${cfg.url.replace(/\/+$/, '')}/auth/v1/health?ts=${now}`;
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer =
-      controller &&
-      setTimeout(() => {
-        controller.abort();
-      }, CLOUD_PROBE_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(probeUrl, {
-        method: 'GET',
-        headers: {
-          apikey: cfg.anonKey,
-        },
-        cache: 'no-store',
-        signal: controller ? controller.signal : undefined,
-      });
-
-      // Any HTTP response means network path is available.
-      const reachable = !!response;
-      cloudProbeState = { checkedAt: now, reachable };
-      return reachable;
-    } catch {
-      cloudProbeState = { checkedAt: now, reachable: false };
-      return false;
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-
   async function getSupabaseUser() {
     const client = getSupabaseClient();
     if (!client) return null;
 
     try {
-      const reachable = await probeCloudReachable(false);
-      if (!reachable) return null;
       const result = await withTimeout(
         client.auth.getUser(),
-        CLOUD_PROBE_TIMEOUT_MS + 1000,
+        CLOUD_CALL_TIMEOUT_MS,
         'Cloud auth lookup timed out'
       );
       return result && result.data ? result.data.user || null : null;
@@ -504,11 +450,6 @@
       throw new Error('Google sign-in is not configured yet');
     }
 
-    const reachable = await probeCloudReachable(true);
-    if (!reachable) {
-      throw new Error('Google cloud auth is unreachable right now. Use local sign-in on this device.');
-    }
-
     try {
       const { data, error } = await withTimeout(
         client.auth.signInWithOAuth({
@@ -574,9 +515,6 @@
       return { ok: false, reason: 'email_mismatch' };
     }
 
-    const reachable = await probeCloudReachable(true);
-    if (!reachable) return { ok: false, reason: 'unreachable' };
-
     try {
       const { data, error } = await withTimeout(
         client.auth.signInWithPassword({
@@ -620,10 +558,7 @@
     // If cloud auth is configured, require an active cloud session.
     // This avoids "logged in but sync off" local-only states.
     if (sb) {
-      const cloudReachable = await probeCloudReachable(false);
-      if (cloudReachable) return null;
-
-      // Cloud is down: allow any locally cached account on this trusted device.
+      // If there is no active cloud session, allow locally cached account on this trusted device.
       const sessionEmail = normalizeEmail(safeStorageGet(SESSION_STORAGE_KEY));
       if (sessionEmail) {
         const user = await getUser(sessionEmail);

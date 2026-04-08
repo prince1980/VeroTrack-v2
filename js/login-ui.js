@@ -381,29 +381,30 @@
         return;
       }
 
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timer =
-        controller &&
-        setTimeout(() => {
-          controller.abort();
-        }, 2200);
-
       try {
-        const res = await fetch(`${cfg.url.replace(/\/+$/, '')}/auth/v1/health?ts=${Date.now()}`, {
-          method: 'GET',
-          headers: { apikey: cfg.anonKey },
-          cache: 'no-store',
-          signal: controller ? controller.signal : undefined,
+        if (typeof window.supabase === 'undefined') {
+          throw new Error('supabase sdk missing');
+        }
+        const sb = window.__VT_SUPABASE_CLIENT || window.supabase.createClient(cfg.url, cfg.anonKey);
+        window.__VT_SUPABASE_CLIENT = sb;
+
+        const timeout = new Promise((resolve) => {
+          setTimeout(() => resolve({ timedOut: true }), 3500);
         });
-        if (cloudDot) cloudDot.classList.toggle('on', !!res);
-        if (cloudText) cloudText.textContent = res ? 'Cloud auth reachable' : 'Cloud auth unavailable';
-        if (googleFallback) googleFallback.hidden = !!res;
+
+        const result = await Promise.race([
+          sb.auth.getSession().then(() => ({ ok: true })),
+          timeout,
+        ]);
+
+        const reachable = !!(result && result.ok);
+        if (cloudDot) cloudDot.classList.toggle('on', reachable);
+        if (cloudText) cloudText.textContent = reachable ? 'Cloud auth reachable' : 'Cloud auth check timed out';
+        if (googleFallback) googleFallback.hidden = reachable;
       } catch {
         if (cloudDot) cloudDot.classList.remove('on');
-        if (cloudText) cloudText.textContent = 'Cloud auth unreachable';
+        if (cloudText) cloudText.textContent = 'Cloud auth check unavailable';
         if (googleFallback) googleFallback.hidden = false;
-      } finally {
-        if (timer) clearTimeout(timer);
       }
     }
 
