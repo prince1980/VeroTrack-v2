@@ -1874,7 +1874,7 @@
       indicator.className = 'status-indicator error';
       text.className = 'status-text';
       text.textContent = pendingResume ? 'Cloud login queued automatically' : 'Cloud sync off';
-      els.btnSyncLogin.hidden = false;
+      els.btnSyncLogin.hidden = pendingResume;
       els.btnSyncLogout.hidden = true;
       els.syncStatus.classList.add('off');
       els.syncStatus.classList.remove('connected');
@@ -1892,8 +1892,14 @@
         throw new Error('Sync unavailable (keys missing)');
       }
 
+      const pendingResume = !!(
+        Auth &&
+        typeof Auth.hasPendingCloudAuth === 'function' &&
+        Auth.hasPendingCloudAuth()
+      );
+
       // Try password-based auto resume first if pending credentials exist.
-      if (Auth && typeof Auth.tryResumeCloudSession === 'function') {
+      if (Auth && typeof Auth.tryResumeCloudSession === 'function' && pendingResume) {
         const resumed = await Auth.tryResumeCloudSession();
         if (resumed && resumed.ok) {
           syncSessionCache = {
@@ -1906,6 +1912,11 @@
           showToast('Cloud sync connected');
           return;
         }
+
+        // Keep it automatic if pending credentials exist; do not force Google fallback.
+        showToast('Cloud sync is queued. It will auto-connect when reachable.', true);
+        await updateSyncUI();
+        return;
       }
 
       // Reuse hardened Google flow with reachability checks and stable redirect URL.

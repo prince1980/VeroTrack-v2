@@ -618,6 +618,7 @@
     safeStorageRemove(SESSION_STORAGE_KEY);
     deleteCookie(USER_EMAIL_COOKIE_NAME);
     deleteCookie(AUTH_COOKIE_NAME);
+    clearPendingCloudAuth();
 
     const sb = getSupabaseClient();
     if (sb) {
@@ -646,6 +647,7 @@
     isAuthenticated,
     tryResumeCloudSession,
     hasPendingCloudAuth,
+    queueCloudCredentials: savePendingCloudAuth,
     initDB,
     getUser,
     storeUser,
