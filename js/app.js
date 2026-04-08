@@ -20,6 +20,10 @@
     timedOut: false,
     failed: false,
   };
+  let autoCloudResume = {
+    inFlight: false,
+    lastAttemptAt: 0,
+  };
 
   async function initializeApp() {
     try {
@@ -1784,6 +1788,7 @@
     const sb = S.supabase;
     const indicator = els.syncStatus.querySelector('.status-indicator');
     const text = els.syncStatus.querySelector('.status-text');
+    const pendingResume = !!(Auth && typeof Auth.hasPendingCloudAuth === 'function' && Auth.hasPendingCloudAuth());
 
     if (!sb) {
       indicator.className = 'status-indicator error';
@@ -1800,8 +1805,10 @@
     if (timedOut) {
       indicator.className = 'status-indicator error';
       text.className = 'status-text';
-      text.textContent = 'Cloud auth timeout';
-      els.btnSyncLogin.hidden = false;
+      text.textContent = pendingResume
+        ? 'Cloud unreachable · auto-sync will resume when online'
+        : 'Cloud unreachable · local mode active';
+      els.btnSyncLogin.hidden = true;
       els.btnSyncLogout.hidden = true;
       els.syncStatus.classList.add('off');
       els.syncStatus.classList.remove('connected');
@@ -1811,8 +1818,10 @@
     if (failed) {
       indicator.className = 'status-indicator error';
       text.className = 'status-text';
-      text.textContent = 'Cloud sync error';
-      els.btnSyncLogin.hidden = false;
+      text.textContent = pendingResume
+        ? 'Cloud sync paused · auto resume queued'
+        : 'Cloud sync paused · local mode active';
+      els.btnSyncLogin.hidden = true;
       els.btnSyncLogout.hidden = true;
       els.syncStatus.classList.add('off');
       els.syncStatus.classList.remove('connected');
@@ -1829,9 +1838,42 @@
       els.syncStatus.classList.remove('off');
       els.syncStatus.classList.add('connected');
     } else {
+      const canAutoResume =
+        Auth &&
+        typeof Auth.tryResumeCloudSession === 'function' &&
+        pendingResume &&
+        !autoCloudResume.inFlight &&
+        Date.now() - autoCloudResume.lastAttemptAt > 15000;
+
+      if (canAutoResume) {
+        autoCloudResume.inFlight = true;
+        autoCloudResume.lastAttemptAt = Date.now();
+        try {
+          const resumed = await Auth.tryResumeCloudSession();
+          if (resumed && resumed.ok) {
+            const fresh = await getCloudSessionSafe(sb, true);
+            const cloudUser = fresh && fresh.session ? fresh.session.user : null;
+            if (cloudUser && cloudUser.email) {
+              indicator.className = 'status-indicator connected';
+              text.className = 'status-text';
+              text.textContent = `Synced as ${cloudUser.email}`;
+              els.btnSyncLogin.hidden = true;
+              els.btnSyncLogout.hidden = false;
+              els.syncStatus.classList.remove('off');
+              els.syncStatus.classList.add('connected');
+              return;
+            }
+          }
+        } catch {
+          // keep regular sync-off rendering below
+        } finally {
+          autoCloudResume.inFlight = false;
+        }
+      }
+
       indicator.className = 'status-indicator error';
       text.className = 'status-text';
-      text.textContent = 'Cloud sync off';
+      text.textContent = pendingResume ? 'Cloud login queued automatically' : 'Cloud sync off';
       els.btnSyncLogin.hidden = false;
       els.btnSyncLogout.hidden = true;
       els.syncStatus.classList.add('off');

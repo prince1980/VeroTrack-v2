@@ -3,6 +3,8 @@
   const USER_EMAIL_COOKIE_NAME = 'vt_user_email';
   const SESSION_STORAGE_KEY = 'vt_session_email';
   const LOCAL_USERS_KEY = 'vt_local_users';
+  const PENDING_CLOUD_AUTH_KEY = 'vt_pending_cloud_auth_v1';
+  const PENDING_CLOUD_AUTH_MAX_AGE_MS = 1000 * 60 * 60 * 8; // 8h
   const USERS_DB_NAME = 'VeroTrackUsers';
   const USERS_STORE_NAME = 'users';
   const CLOUD_REACHABILITY_CACHE_MS = 45000;
@@ -44,6 +46,52 @@
     } catch {
       // no-op
     }
+  }
+
+  function savePendingCloudAuth(email, password) {
+    const normalized = normalizeEmail(email);
+    if (!normalized || !password) return;
+    const payload = {
+      email: normalized,
+      password: String(password),
+      ts: Date.now(),
+    };
+    safeStorageSet(PENDING_CLOUD_AUTH_KEY, JSON.stringify(payload));
+  }
+
+  function clearPendingCloudAuth() {
+    safeStorageRemove(PENDING_CLOUD_AUTH_KEY);
+  }
+
+  function loadPendingCloudAuth() {
+    try {
+      const raw = safeStorageGet(PENDING_CLOUD_AUTH_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') {
+        clearPendingCloudAuth();
+        return null;
+      }
+      const email = normalizeEmail(parsed.email);
+      const password = typeof parsed.password === 'string' ? parsed.password : '';
+      const ts = Number(parsed.ts);
+      if (!email || !password || !Number.isFinite(ts)) {
+        clearPendingCloudAuth();
+        return null;
+      }
+      if (Date.now() - ts > PENDING_CLOUD_AUTH_MAX_AGE_MS) {
+        clearPendingCloudAuth();
+        return null;
+      }
+      return { email, password, ts };
+    } catch {
+      clearPendingCloudAuth();
+      return null;
+    }
+  }
+
+  function hasPendingCloudAuth() {
+    return !!loadPendingCloudAuth();
   }
 
   function loadLocalUsers() {
@@ -131,6 +179,7 @@
 
   async function loginUsingLocalFallback(email, password) {
     const normalized = normalizeEmail(email);
+    savePendingCloudAuth(normalized, password);
     const user = await getUser(normalized);
     if (!user) {
       const passwordHash = await hashPassword(password);
@@ -365,6 +414,7 @@
 
         await saveCloudBackedLocalCredentials(normalized, password, 'supabase_email');
         if (signInTry && !signInTry.error && signInTry.data && signInTry.data.user && signInTry.data.user.email) {
+          clearPendingCloudAuth();
           setCurrentUser(signInTry.data.user.email);
           return { success: true, email: signInTry.data.user.email, cloud: true };
         }
@@ -391,6 +441,7 @@
           cloudPending: true,
         });
         setCurrentUser(normalized);
+        savePendingCloudAuth(normalized, password);
         return { success: true, email: normalized, cloud: false, offline: true, mode: 'local_register' };
       }
     }
@@ -420,6 +471,7 @@
         );
         if (!error && data && data.user && data.user.email) {
           await saveCloudBackedLocalCredentials(data.user.email, password, 'supabase_email');
+          clearPendingCloudAuth();
           setCurrentUser(data.user.email);
           return { success: true, email: data.user.email, cloud: true };
         }
@@ -508,6 +560,50 @@
     await ensureLocalShadowUser(normalized, 'google_local_fallback');
     setCurrentUser(normalized);
     return { success: true, email: normalized, localFallback: true };
+  }
+
+  async function tryResumeCloudSession() {
+    const client = getSupabaseClient();
+    if (!client) return { ok: false, reason: 'no_client' };
+
+    const pending = loadPendingCloudAuth();
+    if (!pending) return { ok: false, reason: 'no_pending' };
+
+    const activeEmail = normalizeEmail(currentUser || safeStorageGet(SESSION_STORAGE_KEY) || '');
+    if (activeEmail && pending.email !== activeEmail) {
+      return { ok: false, reason: 'email_mismatch' };
+    }
+
+    const reachable = await probeCloudReachable(true);
+    if (!reachable) return { ok: false, reason: 'unreachable' };
+
+    try {
+      const { data, error } = await withTimeout(
+        client.auth.signInWithPassword({
+          email: pending.email,
+          password: pending.password,
+        }),
+        CLOUD_CALL_TIMEOUT_MS,
+        'Cloud sign-in timed out'
+      );
+
+      if (error || !data || !data.user || !data.user.email) {
+        if (error && !isNetworkLikeError(error)) {
+          clearPendingCloudAuth();
+        }
+        return { ok: false, reason: 'auth_failed', message: (error && error.message) || '' };
+      }
+
+      await saveCloudBackedLocalCredentials(data.user.email, pending.password, 'supabase_email');
+      clearPendingCloudAuth();
+      setCurrentUser(data.user.email);
+      return { ok: true, email: data.user.email };
+    } catch (err) {
+      if (!isNetworkLikeError(err)) {
+        clearPendingCloudAuth();
+      }
+      return { ok: false, reason: 'request_failed', message: (err && err.message) || '' };
+    }
   }
 
   async function resolveCurrentUser() {
@@ -613,6 +709,8 @@
     logout,
     getCurrentUser,
     isAuthenticated,
+    tryResumeCloudSession,
+    hasPendingCloudAuth,
     initDB,
     getUser,
     storeUser,

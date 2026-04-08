@@ -9,6 +9,6 @@ window.VEROTRACK_SUPABASE = {
 // Optional global Gemini defaults.
 // Warning: any key hardcoded in frontend code is publicly visible in the deployed app.
 window.VEROTRACK_GEMINI_DEFAULT = {
-  defaultApiKey: '',
+  defaultApiKey: 'AIzaSyAysziBCVQZx7BnsXd5QH543uSsLmHQILc',
   defaultModel: 'gemini-2.5-flash-lite',
 };
