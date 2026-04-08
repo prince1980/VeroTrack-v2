@@ -3,7 +3,7 @@
   const CACHE_KEY = 'vt_gemini_cache_v1';
   const RECENT_MEALS_KEY = 'vt_recent_meals_v1';
   const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
-  const SECONDARY_MODEL = 'gemini-2.5-flash-lite';
+  const MODEL_FALLBACKS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash'];
   const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
   const MAX_CACHE_ENTRIES = 80;
   const MAX_RECENT_MEALS = 12;
@@ -209,24 +209,40 @@
 
   async function callGemini(prompt) {
     const apiKey = (settings.apiKey || '').trim();
-    const model = (settings.model || DEFAULT_MODEL).trim();
+    const selectedModel = (settings.model || DEFAULT_MODEL).trim();
 
     if (!apiKey) {
       throw new Error('Gemini API key is missing. Add it in Settings > AI Automation.');
     }
 
-    let response = await generateContentOnce(model, prompt, apiKey);
+    const modelCandidates = [selectedModel]
+      .concat(MODEL_FALLBACKS)
+      .filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
-    // Auto-retry on model-specific quota/outage with a more available fallback model.
-    if (!response.ok && model !== SECONDARY_MODEL && (response.status === 429 || response.status === 503)) {
-      const fallbackRes = await generateContentOnce(SECONDARY_MODEL, prompt, apiKey);
-      if (fallbackRes.ok) {
-        response = fallbackRes;
-        settings.model = SECONDARY_MODEL;
-        persistSettings();
-      } else {
-        response = fallbackRes.status === 404 ? response : fallbackRes;
+    let response = null;
+    let activeModel = selectedModel;
+
+    for (let i = 0; i < modelCandidates.length; i += 1) {
+      const candidate = modelCandidates[i];
+      const res = await generateContentOnce(candidate, prompt, apiKey);
+      if (res.ok) {
+        response = res;
+        activeModel = candidate;
+        break;
       }
+
+      if (res.status === 404 || res.status === 429 || res.status === 503) {
+        response = res;
+        continue;
+      }
+
+      response = res;
+      break;
+    }
+
+    if (response && response.ok && activeModel !== selectedModel) {
+      settings.model = activeModel;
+      persistSettings();
     }
 
     if (!response.ok) {

@@ -5,9 +5,17 @@
   const LOCAL_USERS_KEY = 'vt_local_users';
   const USERS_DB_NAME = 'VeroTrackUsers';
   const USERS_STORE_NAME = 'users';
+  const CLOUD_REACHABILITY_CACHE_MS = 45000;
+  const CLOUD_PROBE_TIMEOUT_MS = 2200;
+  const CLOUD_CALL_TIMEOUT_MS = 9000;
 
   let currentUser = null;
   let authDB = null;
+  let currentUserPromise = null;
+  let cloudProbeState = {
+    checkedAt: 0,
+    reachable: null,
+  };
 
   function normalizeEmail(email) {
     return String(email || '').trim().toLowerCase();
@@ -76,15 +84,96 @@
     }
   }
 
+  function withTimeout(promise, timeoutMs, timeoutMessage) {
+    let timeoutId = null;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(timeoutMessage || 'Request timed out'));
+      }, timeoutMs);
+    });
+
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+    });
+  }
+
+  function isNetworkLikeError(err) {
+    const msg = String((err && err.message) || '').toLowerCase();
+    return (
+      msg.includes('failed to fetch') ||
+      msg.includes('networkerror') ||
+      msg.includes('network request failed') ||
+      msg.includes('timed out') ||
+      msg.includes('timeout') ||
+      msg.includes('load failed')
+    );
+  }
+
+  async function probeCloudReachable(force) {
+    const now = Date.now();
+    if (
+      !force &&
+      cloudProbeState.reachable !== null &&
+      now - cloudProbeState.checkedAt < CLOUD_REACHABILITY_CACHE_MS
+    ) {
+      return cloudProbeState.reachable;
+    }
+
+    const cfg = window.VEROTRACK_SUPABASE || {};
+    if (!cfg.url || !cfg.anonKey) {
+      cloudProbeState = { checkedAt: now, reachable: false };
+      return false;
+    }
+
+    const probeUrl = `${cfg.url.replace(/\/+$/, '')}/auth/v1/health?ts=${now}`;
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer =
+      controller &&
+      setTimeout(() => {
+        controller.abort();
+      }, CLOUD_PROBE_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(probeUrl, {
+        method: 'GET',
+        headers: {
+          apikey: cfg.anonKey,
+        },
+        cache: 'no-store',
+        signal: controller ? controller.signal : undefined,
+      });
+
+      // Any HTTP response means network path is available.
+      const reachable = !!response;
+      cloudProbeState = { checkedAt: now, reachable };
+      return reachable;
+    } catch {
+      cloudProbeState = { checkedAt: now, reachable: false };
+      return false;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  async function ensureCloudReachable() {
+    const reachable = await probeCloudReachable(true);
+    if (!reachable) {
+      throw new Error('Cannot reach cloud auth right now. Check internet/VPN/firewall.');
+    }
+  }
+
   async function getSupabaseUser() {
     const client = getSupabaseClient();
     if (!client) return null;
 
     try {
-      const timeoutUser = new Promise((resolve) => {
-        setTimeout(() => resolve({ data: { user: null } }), 4000);
-      });
-      const result = await Promise.race([client.auth.getUser(), timeoutUser]);
+      const reachable = await probeCloudReachable(false);
+      if (!reachable) return null;
+      const result = await withTimeout(
+        client.auth.getUser(),
+        CLOUD_PROBE_TIMEOUT_MS + 1000,
+        'Cloud auth lookup timed out'
+      );
       return result && result.data ? result.data.user || null : null;
     } catch {
       return null;
@@ -204,23 +293,32 @@
 
     const sb = getSupabaseClient();
     if (sb) {
-      const { data, error } = await sb.auth.signUp({
-        email: normalized,
-        password,
-        options: {
-          emailRedirectTo: getAppRedirectUrl(),
-        },
-      });
+      await ensureCloudReachable();
+      const { data, error } = await withTimeout(
+        sb.auth.signUp({
+          email: normalized,
+          password,
+          options: {
+            emailRedirectTo: getAppRedirectUrl(),
+          },
+        }),
+        CLOUD_CALL_TIMEOUT_MS,
+        'Cloud signup timed out'
+      );
       if (error) {
         throw new Error(error.message || 'Could not create account');
       }
 
       // Try to establish a real session immediately after signup.
       // If email confirmation is enabled in Supabase, this may fail until user confirms email.
-      const signInTry = await sb.auth.signInWithPassword({
-        email: normalized,
-        password,
-      });
+      const signInTry = await withTimeout(
+        sb.auth.signInWithPassword({
+          email: normalized,
+          password,
+        }),
+        CLOUD_CALL_TIMEOUT_MS,
+        'Cloud sign-in timed out after signup'
+      );
 
       await ensureLocalShadowUser(normalized, 'supabase_email');
       if (signInTry && !signInTry.error && signInTry.data && signInTry.data.user && signInTry.data.user.email) {
@@ -252,10 +350,15 @@
 
     const sb = getSupabaseClient();
     if (sb) {
-      const { data, error } = await sb.auth.signInWithPassword({
-        email: normalized,
-        password,
-      });
+      await ensureCloudReachable();
+      const { data, error } = await withTimeout(
+        sb.auth.signInWithPassword({
+          email: normalized,
+          password,
+        }),
+        CLOUD_CALL_TIMEOUT_MS,
+        'Cloud sign-in timed out'
+      );
       if (!error && data && data.user && data.user.email) {
         await ensureLocalShadowUser(data.user.email, 'supabase_email');
         setCurrentUser(data.user.email);
@@ -284,22 +387,49 @@
       throw new Error('Google sign-in is not configured yet');
     }
 
-    const { data, error } = await client.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: getAppRedirectUrl(),
-        skipBrowserRedirect: true,
-      },
-    });
-    if (error) {
-      throw new Error(error.message || 'Could not start Google sign-in');
+    await ensureCloudReachable();
+
+    try {
+      const { data, error } = await withTimeout(
+        client.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: getAppRedirectUrl(),
+            skipBrowserRedirect: true,
+          },
+        }),
+        CLOUD_CALL_TIMEOUT_MS,
+        'Cloud Google sign-in timed out'
+      );
+      if (error) {
+        throw new Error(error.message || 'Could not start Google sign-in');
+      }
+
+      const authUrl = data && data.url;
+      if (!authUrl) {
+        // Fallback to Supabase-managed browser redirect mode if URL isn't returned.
+        await withTimeout(
+          client.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: getAppRedirectUrl(),
+              skipBrowserRedirect: false,
+            },
+          }),
+          CLOUD_CALL_TIMEOUT_MS,
+          'Cloud Google sign-in timed out'
+        );
+        return { success: true };
+      }
+
+      window.location.assign(authUrl);
+      return { success: true };
+    } catch (err) {
+      if (isNetworkLikeError(err)) {
+        throw new Error('Cannot reach cloud auth right now. Check internet/VPN/firewall.');
+      }
+      throw err;
     }
-
-    const authUrl = data && data.url;
-    if (!authUrl) throw new Error('Cloud auth URL was not generated');
-
-    window.location.assign(authUrl);
-    return { success: true };
   }
 
   async function loginWithGoogleLocal(email) {
@@ -312,7 +442,7 @@
     return { success: true, email: normalized, localFallback: true };
   }
 
-  async function getCurrentUser() {
+  async function resolveCurrentUser() {
     if (currentUser) return currentUser;
 
     const sb = getSupabaseClient();
@@ -326,6 +456,10 @@
     // If cloud auth is configured, require an active cloud session.
     // This avoids "logged in but sync off" local-only states.
     if (sb) {
+      const cloudReachable = await probeCloudReachable(false);
+      if (cloudReachable) return null;
+
+      // Cloud is down: allow explicit local Gmail fallback accounts.
       const sessionEmail = normalizeEmail(safeStorageGet(SESSION_STORAGE_KEY));
       if (sessionEmail) {
         const user = await getUser(sessionEmail);
@@ -366,6 +500,18 @@
     }
 
     return null;
+  }
+
+  async function getCurrentUser() {
+    if (currentUser) return currentUser;
+    if (currentUserPromise) return currentUserPromise;
+
+    currentUserPromise = resolveCurrentUser();
+    try {
+      return await currentUserPromise;
+    } finally {
+      currentUserPromise = null;
+    }
   }
 
   async function logout() {

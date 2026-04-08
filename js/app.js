@@ -14,6 +14,12 @@
   let tipLoaded = false;
   let aiFoodDraft = null;
   let aiExerciseDraft = null;
+  let syncSessionCache = {
+    checkedAt: 0,
+    session: null,
+    timedOut: false,
+    failed: false,
+  };
 
   async function initializeApp() {
     try {
@@ -69,7 +75,13 @@
     }
 
     if (S.supabase) {
-      S.supabase.auth.onAuthStateChange(async () => {
+      S.supabase.auth.onAuthStateChange(async (_event, session) => {
+        syncSessionCache = {
+          checkedAt: Date.now(),
+          session: session || null,
+          timedOut: false,
+          failed: false,
+        };
         updateSyncUI();
 
         const email = await Auth.getCurrentUser();
@@ -1727,9 +1739,18 @@
   // Call on startup
   updateAuthUI();
 
-  async function getCloudSessionSafe(sb) {
+  async function getCloudSessionSafe(sb, force) {
+    const now = Date.now();
+    if (!force && now - syncSessionCache.checkedAt < 12000) {
+      return {
+        session: syncSessionCache.session,
+        timedOut: syncSessionCache.timedOut,
+        failed: syncSessionCache.failed,
+      };
+    }
+
     const timeoutResult = new Promise((resolve) => {
-      setTimeout(() => resolve({ session: null, timedOut: true }), 7000);
+      setTimeout(() => resolve({ session: null, timedOut: true }), 2600);
     });
 
     try {
@@ -1740,9 +1761,22 @@
         })),
         timeoutResult,
       ]);
+      syncSessionCache = {
+        checkedAt: Date.now(),
+        session: result.session || null,
+        timedOut: !!result.timedOut,
+        failed: false,
+      };
       return result;
     } catch {
-      return { session: null, timedOut: false, failed: true };
+      const failedResult = { session: null, timedOut: false, failed: true };
+      syncSessionCache = {
+        checkedAt: Date.now(),
+        session: null,
+        timedOut: false,
+        failed: true,
+      };
+      return failedResult;
     }
   }
 
@@ -1762,7 +1796,7 @@
       return;
     }
 
-    const { session, timedOut, failed } = await getCloudSessionSafe(sb);
+    const { session, timedOut, failed } = await getCloudSessionSafe(sb, false);
     if (timedOut) {
       indicator.className = 'status-indicator error';
       text.className = 'status-text';
@@ -1858,6 +1892,12 @@
 
     try {
       await sb.auth.signOut();
+      syncSessionCache = {
+        checkedAt: Date.now(),
+        session: null,
+        timedOut: false,
+        failed: false,
+      };
       showToast('Logged out');
       await updateSyncUI();
     } catch (err) {

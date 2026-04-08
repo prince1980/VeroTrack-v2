@@ -57,6 +57,32 @@
         color: #9ca3af;
       }
 
+      .vt-cloud-status {
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.04);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #cbd5e1;
+      }
+
+      .vt-cloud-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #ef4444;
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+      }
+
+      .vt-cloud-dot.on {
+        background: #34d399;
+        box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.2);
+      }
+
       .vt-toast {
         margin-bottom: 18px;
         padding: 11px 14px;
@@ -282,6 +308,10 @@
 
         <div id="vt-toast" class="vt-toast"></div>
         ${localModeWarning}
+        <div class="vt-cloud-status" id="vt-cloud-status">
+          <span class="vt-cloud-dot" id="vt-cloud-dot"></span>
+          <span id="vt-cloud-text">Checking cloud auth...</span>
+        </div>
 
         <button type="button" id="vt-btn-google" class="vt-login-google">Continue with Google</button>
         <div id="vt-google-fallback" class="vt-google-fallback" hidden>
@@ -339,6 +369,40 @@
     const googleFallback = document.getElementById('vt-google-fallback');
     const googleFallbackEmail = document.getElementById('vt-google-fallback-email');
     const googleFallbackBtn = document.getElementById('vt-btn-google-local');
+    const cloudDot = document.getElementById('vt-cloud-dot');
+    const cloudText = document.getElementById('vt-cloud-text');
+
+    async function probeCloudStatus() {
+      const cfg = window.VEROTRACK_SUPABASE || {};
+      if (!cfg.url || !cfg.anonKey) {
+        if (cloudDot) cloudDot.classList.remove('on');
+        if (cloudText) cloudText.textContent = 'Cloud auth not configured';
+        return;
+      }
+
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer =
+        controller &&
+        setTimeout(() => {
+          controller.abort();
+        }, 2200);
+
+      try {
+        const res = await fetch(`${cfg.url.replace(/\/+$/, '')}/auth/v1/health?ts=${Date.now()}`, {
+          method: 'GET',
+          headers: { apikey: cfg.anonKey },
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined,
+        });
+        if (cloudDot) cloudDot.classList.toggle('on', !!res);
+        if (cloudText) cloudText.textContent = res ? 'Cloud auth reachable' : 'Cloud auth unavailable';
+      } catch {
+        if (cloudDot) cloudDot.classList.remove('on');
+        if (cloudText) cloudText.textContent = 'Cloud auth unreachable';
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
 
     tabs.forEach((tabBtn) => {
       tabBtn.addEventListener('click', () => {
@@ -434,6 +498,8 @@
         googleFallbackBtn.textContent = originalText;
       }
     });
+
+    probeCloudStatus();
   }
 
   async function showLoginScreen() {
