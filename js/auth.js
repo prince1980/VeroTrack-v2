@@ -133,7 +133,14 @@
     const normalized = normalizeEmail(email);
     const user = await getUser(normalized);
     if (!user) {
-      throw new Error('Cloud auth is unavailable and no local account exists on this device.');
+      const passwordHash = await hashPassword(password);
+      await storeUser(normalized, passwordHash, {
+        provider: 'local_offline',
+        cloudPending: true,
+        autoCreatedFromOfflineSignIn: true,
+      });
+      setCurrentUser(normalized);
+      return { success: true, email: normalized, cloud: false, offline: true, mode: 'auto_local_create' };
     }
 
     // If this device already trusted this cloud account before, allow offline entry.
