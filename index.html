@@ -593,7 +593,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        var swVersion = '2026-04-08-7';
+        var swVersion = '2026-04-08-8';
         navigator.serviceWorker
           .register('./sw.js?v=' + swVersion)
           .then(function (registration) {

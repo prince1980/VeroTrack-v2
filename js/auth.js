@@ -109,6 +109,48 @@
     );
   }
 
+  function isCloudMarkerHash(passwordHash) {
+    return (
+      passwordHash === 'supabase_email' ||
+      passwordHash === 'cloud_auth' ||
+      passwordHash === 'supabase_oauth' ||
+      passwordHash === 'google_local_fallback'
+    );
+  }
+
+  async function saveCloudBackedLocalCredentials(email, password, provider) {
+    const normalized = normalizeEmail(email);
+    if (!normalized || !password) return null;
+    const passwordHash = await hashPassword(password);
+    return storeUser(normalized, passwordHash, {
+      provider: provider || 'supabase_email',
+      cloudLinked: true,
+      lastCloudAuthAt: new Date().toISOString(),
+    });
+  }
+
+  async function loginUsingLocalFallback(email, password) {
+    const normalized = normalizeEmail(email);
+    const user = await getUser(normalized);
+    if (!user) {
+      throw new Error('Cloud auth is unavailable and no local account exists on this device.');
+    }
+
+    // If this device already trusted this cloud account before, allow offline entry.
+    if (isCloudMarkerHash(user.passwordHash)) {
+      setCurrentUser(normalized);
+      return { success: true, email: normalized, cloud: false, offline: true, mode: 'device_trust' };
+    }
+
+    const passwordHash = await hashPassword(password);
+    if (passwordHash !== user.passwordHash) {
+      throw new Error('Cloud auth is unavailable and local password does not match.');
+    }
+
+    setCurrentUser(normalized);
+    return { success: true, email: normalized, cloud: false, offline: true, mode: 'local_password' };
+  }
+
   async function probeCloudReachable(force) {
     const now = Date.now();
     if (
@@ -152,13 +194,6 @@
       return false;
     } finally {
       if (timer) clearTimeout(timer);
-    }
-  }
-
-  async function ensureCloudReachable() {
-    const reachable = await probeCloudReachable(true);
-    if (!reachable) {
-      throw new Error('Cannot reach cloud auth right now. Check internet/VPN/firewall.');
     }
   }
 
@@ -293,47 +328,64 @@
 
     const sb = getSupabaseClient();
     if (sb) {
-      await ensureCloudReachable();
-      const { data, error } = await withTimeout(
-        sb.auth.signUp({
-          email: normalized,
-          password,
-          options: {
-            emailRedirectTo: getAppRedirectUrl(),
-          },
-        }),
-        CLOUD_CALL_TIMEOUT_MS,
-        'Cloud signup timed out'
-      );
-      if (error) {
-        throw new Error(error.message || 'Could not create account');
-      }
-
-      // Try to establish a real session immediately after signup.
-      // If email confirmation is enabled in Supabase, this may fail until user confirms email.
-      const signInTry = await withTimeout(
-        sb.auth.signInWithPassword({
-          email: normalized,
-          password,
-        }),
-        CLOUD_CALL_TIMEOUT_MS,
-        'Cloud sign-in timed out after signup'
-      );
-
-      await ensureLocalShadowUser(normalized, 'supabase_email');
-      if (signInTry && !signInTry.error && signInTry.data && signInTry.data.user && signInTry.data.user.email) {
-        setCurrentUser(signInTry.data.user.email);
-        return { success: true, email: signInTry.data.user.email, cloud: true };
-      }
-
-      if (signInTry && signInTry.error) {
-        throw new Error(
-          signInTry.error.message ||
-            'Account created. Verify your email to enable cloud session and sync.'
+      try {
+        const { error } = await withTimeout(
+          sb.auth.signUp({
+            email: normalized,
+            password,
+            options: {
+              emailRedirectTo: getAppRedirectUrl(),
+            },
+          }),
+          CLOUD_CALL_TIMEOUT_MS,
+          'Cloud signup timed out'
         );
-      }
 
-      throw new Error('Account created but cloud session is not active yet. Verify email if required.');
+        if (error) {
+          throw new Error(error.message || 'Could not create account');
+        }
+
+        // Try to establish a real session immediately after signup.
+        // If email confirmation is enabled in Supabase, this may fail until user confirms email.
+        const signInTry = await withTimeout(
+          sb.auth.signInWithPassword({
+            email: normalized,
+            password,
+          }),
+          CLOUD_CALL_TIMEOUT_MS,
+          'Cloud sign-in timed out after signup'
+        );
+
+        await saveCloudBackedLocalCredentials(normalized, password, 'supabase_email');
+        if (signInTry && !signInTry.error && signInTry.data && signInTry.data.user && signInTry.data.user.email) {
+          setCurrentUser(signInTry.data.user.email);
+          return { success: true, email: signInTry.data.user.email, cloud: true };
+        }
+
+        if (signInTry && signInTry.error) {
+          throw new Error(
+            signInTry.error.message ||
+              'Account created. Verify your email to enable cloud session and sync.'
+          );
+        }
+
+        throw new Error('Account created but cloud session is not active yet. Verify email if required.');
+      } catch (err) {
+        if (!isNetworkLikeError(err)) throw err;
+
+        const existing = await getUser(normalized);
+        if (existing) {
+          throw new Error('Cloud is down right now. Use Sign in for this device account.');
+        }
+
+        const passwordHash = await hashPassword(password);
+        await storeUser(normalized, passwordHash, {
+          provider: 'local_offline',
+          cloudPending: true,
+        });
+        setCurrentUser(normalized);
+        return { success: true, email: normalized, cloud: false, offline: true, mode: 'local_register' };
+      }
     }
 
     const existing = await getUser(normalized);
@@ -350,29 +402,35 @@
 
     const sb = getSupabaseClient();
     if (sb) {
-      await ensureCloudReachable();
-      const { data, error } = await withTimeout(
-        sb.auth.signInWithPassword({
-          email: normalized,
-          password,
-        }),
-        CLOUD_CALL_TIMEOUT_MS,
-        'Cloud sign-in timed out'
-      );
-      if (!error && data && data.user && data.user.email) {
-        await ensureLocalShadowUser(data.user.email, 'supabase_email');
-        setCurrentUser(data.user.email);
-        return { success: true, email: data.user.email, cloud: true };
-      }
+      try {
+        const { data, error } = await withTimeout(
+          sb.auth.signInWithPassword({
+            email: normalized,
+            password,
+          }),
+          CLOUD_CALL_TIMEOUT_MS,
+          'Cloud sign-in timed out'
+        );
+        if (!error && data && data.user && data.user.email) {
+          await saveCloudBackedLocalCredentials(data.user.email, password, 'supabase_email');
+          setCurrentUser(data.user.email);
+          return { success: true, email: data.user.email, cloud: true };
+        }
 
-      throw new Error((error && error.message) || 'Cloud login failed');
+        throw new Error((error && error.message) || 'Cloud login failed');
+      } catch (err) {
+        if (isNetworkLikeError(err)) {
+          return loginUsingLocalFallback(normalized, password);
+        }
+        throw err;
+      }
     }
 
     const user = await getUser(normalized);
     if (!user) throw new Error('No account found for this email');
 
-    if (user.passwordHash === 'supabase_email' || user.passwordHash === 'cloud_auth') {
-      throw new Error('Use your cloud password on a connected network.');
+    if (isCloudMarkerHash(user.passwordHash)) {
+      throw new Error('Use email/password after cloud connection is restored.');
     }
 
     const passwordHash = await hashPassword(password);
@@ -386,8 +444,6 @@
     if (!client) {
       throw new Error('Google sign-in is not configured yet');
     }
-
-    await ensureCloudReachable();
 
     try {
       const { data, error } = await withTimeout(
@@ -426,7 +482,7 @@
       return { success: true };
     } catch (err) {
       if (isNetworkLikeError(err)) {
-        throw new Error('Cannot reach cloud auth right now. Check internet/VPN/firewall.');
+        throw new Error('Google cloud auth is temporarily unreachable. Use email sign-in on this device.');
       }
       throw err;
     }
@@ -459,11 +515,11 @@
       const cloudReachable = await probeCloudReachable(false);
       if (cloudReachable) return null;
 
-      // Cloud is down: allow explicit local Gmail fallback accounts.
+      // Cloud is down: allow any locally cached account on this trusted device.
       const sessionEmail = normalizeEmail(safeStorageGet(SESSION_STORAGE_KEY));
       if (sessionEmail) {
         const user = await getUser(sessionEmail);
-        if (user && user.passwordHash === 'google_local_fallback') {
+        if (user) {
           currentUser = sessionEmail;
           return currentUser;
         }
@@ -472,7 +528,7 @@
       const remembered = normalizeEmail(getCookie(USER_EMAIL_COOKIE_NAME));
       if (remembered) {
         const user = await getUser(remembered);
-        if (user && user.passwordHash === 'google_local_fallback') {
+        if (user) {
           currentUser = remembered;
           return currentUser;
         }
