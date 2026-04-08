@@ -5,8 +5,6 @@
   const DATA_STORE_NAME = 'userdata';
   const CLOUD_TABLE = 'user_data';
   const MAX_HISTORY_DAYS = 3653; // ~10 years
-  const CLOUD_REACHABILITY_CACHE_MS = 45000;
-  const CLOUD_PROBE_TIMEOUT_MS = 2200;
   const CLOUD_CALL_TIMEOUT_MS = 4000;
 
   const SUPABASE_CONFIG = window.VEROTRACK_SUPABASE || {};
@@ -39,10 +37,6 @@
   let dataDB = null;
   let queuedPushTimer = null;
   let queuedPushPromise = null;
-  let cloudProbeState = {
-    checkedAt: 0,
-    reachable: null,
-  };
 
   async function initDataDB() {
     return new Promise((resolve, reject) => {
@@ -70,43 +64,6 @@
     return Promise.race([promise, timeoutPromise]).finally(() => {
       if (timeoutId) clearTimeout(timeoutId);
     });
-  }
-
-  async function probeCloudReachable(force) {
-    if (!supabaseClient) return false;
-    const now = Date.now();
-    if (
-      !force &&
-      cloudProbeState.reachable !== null &&
-      now - cloudProbeState.checkedAt < CLOUD_REACHABILITY_CACHE_MS
-    ) {
-      return cloudProbeState.reachable;
-    }
-
-    const probeUrl = `${SUPABASE_URL.replace(/\/+$/, '')}/auth/v1/health?ts=${now}`;
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer =
-      controller &&
-      setTimeout(() => {
-        controller.abort();
-      }, CLOUD_PROBE_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(probeUrl, {
-        method: 'GET',
-        headers: { apikey: SUPABASE_KEY },
-        cache: 'no-store',
-        signal: controller ? controller.signal : undefined,
-      });
-      const reachable = !!response;
-      cloudProbeState = { checkedAt: now, reachable };
-      return reachable;
-    } catch {
-      cloudProbeState = { checkedAt: now, reachable: false };
-      return false;
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
   }
 
   const DEFAULT_SUPPLEMENT_NAMES = ['Creatine', 'Protein', 'Fish Oil', 'Multivitamin'];
@@ -422,8 +379,6 @@
 
   async function getCloudIdentity(expectedEmail) {
     if (!supabaseClient) return null;
-    const reachable = await probeCloudReachable(false);
-    if (!reachable) return null;
 
     try {
       const {
