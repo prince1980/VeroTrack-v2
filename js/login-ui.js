@@ -322,7 +322,7 @@
             <label for="vt-signup-confirm">Confirm password</label>
             <input type="password" id="vt-signup-confirm" autocomplete="new-password" placeholder="••••••" required />
           </div>
-          <p class="vt-login-hint">Your data is private and saved on your device.</p>
+          <p class="vt-login-hint">Your data is private and syncs securely to your account.</p>
           <button type="submit" class="vt-btn-primary">Create account</button>
         </form>
 

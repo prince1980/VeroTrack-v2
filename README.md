@@ -1,69 +1,54 @@
-# VeroTrack
+# VeroTrack v2
 
-Think of this as an **app that lives in Safari**. Your logs and goals are saved **on your iPhone** for this website address. When you “update the app” from Cursor, only the code on the server changes — **your numbers stay on your phone** (unless you delete Safari data for this site).
+VeroTrack is a mobile-first fitness tracker PWA focused on low-friction logging, long-term history, and cloud sync.
 
-## Free hosting that stays online (GitHub Pages)
+## What is upgraded
 
-GitHub serves the files from a **global CDN**. There is no “server sleep” — the site is always reachable.
+- AI-assisted food logging via Gemini with editable preview before save
+- AI-assisted exercise metadata (burn estimate, muscle group, exercise type)
+- Cloud-first auth and sync (Supabase email/password + Google OAuth)
+- Persistent history grouping by year/month/day (up to 10 years retained)
+- Dashboard emphasis on protein progress + key daily metrics
+- Quick-add step buttons (`+2000`, `+5000`, `+10000`)
+- Theme support (`auto`, `dark`, `light`)
+- Better resilience for API and sync failures
 
-**Free plan:** use a **public** repository (private + Pages needs a paid GitHub plan).
+## Setup
 
-1. Create a repo on GitHub (example name: `verotrack`).
-2. Push this project to the **`main`** branch (from Cursor terminal or GitHub Desktop).
-3. In the repo on GitHub: **Settings → Pages**.
-4. Under **Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”).
-5. Go to the **Actions** tab and wait until **Deploy GitHub Pages** succeeds.
-6. Open the URL GitHub shows (usually `https://YOUR_USERNAME.github.io/YOUR_REPO/`).
-
-## iPhone: install like an app
-
-1. Open your VeroTrack link in **Safari** (not Chrome for the first install if you want the smoothest “Add to Home Screen” flow).
-2. Tap **Share** → **Add to Home Screen** → **Add**.
-3. Launch it from the icon; it opens full screen.
-
-**Optional nicer home screen icon (PNG):** on a computer, open `icons/build.html` in Chrome, download the two PNGs into `icons/`, then you can point `apple-touch-icon` in `index.html` at `icons/apple-touch-icon.png` (copy one of the PNGs to that name). The app already ships with `icons/icon.svg` which works for many browsers.
-
-## Will my data still be there in 10 years?
-
-- It stays as long as **Safari keeps website data** for **this exact URL** and you don’t wipe it in Settings.
-- That’s normal for PWAs: **no login**, data on device.
-- For peace of mind, use **Settings → Export backup** in the app once in a while and save the file to **iCloud Drive** or email.
-
-## Updating from Cursor (how you ship changes)
-
-1. Edit the project in Cursor.
-2. **Commit** and **push** to `main`.
-3. GitHub Actions publishes the new version in about a minute.
-4. On the phone, **close the app fully** or pull to refresh if you’re in Safari — you may need to open it twice after an update so the new service worker applies.
-
-If something looks stuck on an old version, change the `CACHE` line at the top of `sw.js`, push again.
-
-## PWA pieces included
-
-- `manifest.json` — name, colors, standalone display.
-- `sw.js` — caches the app shell for faster loads and offline-ish behavior.
-- `icons/icon.svg` — app icon.
-
-## Keepalive workflow
-
-The separate `keepalive` workflow is only for **Render-style web servers** that spin down. **You don’t need it for GitHub Pages.**
-
-## Cloud Sync Setup (Supabase)
-
-Run this once to make Cloud Sync fully live end-to-end:
+## 1) Supabase (required for cloud auth/sync)
 
 1. Create a Supabase project.
-2. In Supabase, open **Authentication -> Providers -> Google** and enable Google sign-in.
-3. In Supabase, open **SQL Editor** and run [supabase/schema.sql](supabase/schema.sql).
-4. In [js/supabase-config.js](js/supabase-config.js), set your real values:
-	- `url`: your project URL (for example `https://xxxx.supabase.co`)
-	- `anonKey`: your project anon public key
-5. In Supabase **Authentication -> URL Configuration**, add your site URL as allowed redirect URL:
-	- `https://YOUR_USERNAME.github.io/YOUR_REPO/`
-6. Push to GitHub Pages.
+2. In **Authentication -> Providers**, enable Google OAuth.
+3. In **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql).
+4. Set your public config in [`js/supabase-config.js`](js/supabase-config.js):
+   - `url`
+   - `anonKey`
+5. In **Authentication -> URL Configuration**, add your app URL to allowed redirects.
 
-How this works now:
+## 2) Gemini API (required for AI meal/exercise automation)
 
-- Sync writes one row per authenticated user in `public.user_data`.
-- Row ownership is enforced by RLS with `auth.uid() = user_id`.
-- Local app user email is checked against cloud session email before sync.
+1. Create a Google AI Studio API key.
+2. Open app **Settings -> AI Automation**.
+3. Paste your Gemini API key.
+4. Optionally change model (default: `gemini-2.5-flash-lite`).
+
+The key is stored in your synced user settings and loaded after sign-in.
+
+Optional global default (all users/devices):
+- Configure `window.VEROTRACK_GEMINI_DEFAULT` in [`js/supabase-config.js`](js/supabase-config.js).
+- Important: a frontend hardcoded key is publicly visible in deployed code.
+
+## Run / Deploy
+
+- Static hosting works (GitHub Pages, Netlify, Vercel static, etc.)
+- PWA shell is cached by `sw.js`
+- After deploy, bump cache/version if clients appear stale:
+  - `sw.js` `CACHE` constant
+  - `index.html` `swVersion` value
+
+## Data model notes
+
+- User data is stored locally in IndexedDB + localStorage for fast load.
+- Each authenticated user has isolated cloud data in `public.user_data` via RLS.
+- Merge strategy prefers the newest `meta.updatedAt`.
+- History retention is capped to ~10 years.

@@ -44,6 +44,36 @@
             <button type="button" class="banner__link" id="btn-banner-settings">Settings</button>
           </p>
 
+          <article class="lux-card protein-focus-card">
+            <div class="protein-focus-head">
+              <p class="protein-focus-label">Protein focus</p>
+              <p class="protein-focus-value"><span id="protein-focus-current">0</span>/<span id="protein-focus-goal">0</span> g</p>
+            </div>
+            <div class="protein-focus-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="protein-focus-track">
+              <div class="protein-focus-fill" id="protein-focus-fill"></div>
+            </div>
+            <p class="protein-focus-note" id="protein-focus-note">0 g remaining</p>
+          </article>
+
+          <div class="home-kpi-grid">
+            <article class="home-kpi-card">
+              <span class="home-kpi-label">Calories</span>
+              <span class="home-kpi-value" id="home-calories-main">0</span>
+            </article>
+            <article class="home-kpi-card">
+              <span class="home-kpi-label">Steps</span>
+              <span class="home-kpi-value" id="home-steps-main">0</span>
+            </article>
+            <article class="home-kpi-card">
+              <span class="home-kpi-label">Burned</span>
+              <span class="home-kpi-value" id="home-burn-main">0</span>
+            </article>
+            <article class="home-kpi-card">
+              <span class="home-kpi-label">Workout</span>
+              <span class="home-kpi-value home-kpi-status" id="home-workout-main">Pending</span>
+            </article>
+          </div>
+
           <article class="lux-card lux-card--xp">
             <div class="xp-row">
               <div>
@@ -204,10 +234,20 @@
             <h2 class="card-title">Food</h2>
             <form id="form-food" class="form-stack">
               <label class="field">
-                <span>What did you eat?</span>
-                <input type="text" id="food-name" name="name" autocomplete="off" placeholder="e.g. Salmon bowl" />
+                <span>Meal description</span>
+                <input type="text" id="food-name" name="name" autocomplete="off" placeholder="e.g. 2 roti, dal, rice, whey protein" />
               </label>
-              <div class="form-row">
+              <div class="food-ai-actions">
+                <button type="button" class="btn btn-secondary" id="btn-food-analyze">Analyze with Gemini</button>
+                <button type="submit" class="btn btn-primary">Save entry</button>
+              </div>
+
+              <div id="food-ai-preview" class="ai-preview" hidden>
+                <p class="ai-preview-title">Review before saving</p>
+                <p class="ai-preview-sub" id="food-ai-source"></p>
+              </div>
+
+              <div class="form-row form-row-4">
                 <label class="field">
                   <span>Calories</span>
                   <input type="number" id="food-calories" name="calories" inputmode="numeric" min="0" step="1" placeholder="0" />
@@ -216,9 +256,32 @@
                   <span>Protein (g)</span>
                   <input type="number" id="food-protein" name="protein" inputmode="decimal" min="0" step="0.1" placeholder="0" />
                 </label>
+                <label class="field">
+                  <span>Carbs (g)</span>
+                  <input type="number" id="food-carbs" name="carbs" inputmode="decimal" min="0" step="0.1" placeholder="0" />
+                </label>
+                <label class="field">
+                  <span>Fats (g)</span>
+                  <input type="number" id="food-fats" name="fats" inputmode="decimal" min="0" step="0.1" placeholder="0" />
+                </label>
               </div>
-              <button type="submit" class="btn btn-primary">Add entry</button>
+
+              <div class="form-row">
+                <label class="field">
+                  <span>Fiber (g)</span>
+                  <input type="number" id="food-fiber" name="fiber" inputmode="decimal" min="0" step="0.1" placeholder="0" />
+                </label>
+                <label class="field">
+                  <span>Sugar (g)</span>
+                  <input type="number" id="food-sugar" name="sugar" inputmode="decimal" min="0" step="0.1" placeholder="0" />
+                </label>
+              </div>
             </form>
+
+            <div class="recent-meals" id="food-recent-wrap" hidden>
+              <p class="recent-meals__title">Recent meals</p>
+              <div class="recent-meals__chips" id="food-recent"></div>
+            </div>
 
             <div class="list-section">
               <h3 class="list-heading">Today</h3>
@@ -230,6 +293,11 @@
           <article class="lux-card">
             <h2 class="card-title">Steps</h2>
             <p class="card-hint">Powers walking burn with your height from Settings.</p>
+            <div class="chip-row" id="steps-quick">
+              <button type="button" class="chip" data-add="2000">+2000</button>
+              <button type="button" class="chip" data-add="5000">+5000</button>
+              <button type="button" class="chip" data-add="10000">+10000</button>
+            </div>
             <form id="form-steps" class="form-row form-row--steps">
               <label class="field field--grow">
                 <span>Steps today</span>
@@ -279,10 +347,19 @@
 
           <article class="lux-card">
             <h2 class="card-title">Exercises</h2>
-            <p class="card-hint">MET × weight × minutes. Idea below is live from wger (open API).</p>
-            <button type="button" class="btn btn-secondary btn-block btn--compact" id="btn-exercise-inspire">
-              Random exercise idea
-            </button>
+            <p class="card-hint">MET × weight × minutes. AI can estimate burn and muscle focus before you save.</p>
+            <div class="workout-ai-actions">
+              <button type="button" class="btn btn-secondary btn-block btn--compact" id="btn-exercise-inspire">
+                Random exercise idea
+              </button>
+              <button type="button" class="btn btn-secondary btn-block btn--compact" id="btn-exercise-analyze">
+                Analyze exercise with Gemini
+              </button>
+            </div>
+            <div id="exercise-ai-preview" class="ai-preview ai-preview--exercise" hidden>
+              <p class="ai-preview-title">AI estimate</p>
+              <p class="ai-preview-sub" id="exercise-ai-meta"></p>
+            </div>
             <form id="form-exercise" class="form-stack">
               <label class="field">
                 <span>Name</span>
@@ -327,14 +404,14 @@
           </header>
 
           <article class="lux-card lux-card--subtle">
-            <h2 class="card-title">Last 7 days</h2>
+            <h2 class="card-title">Trend (last 30 days)</h2>
             <div class="week-chart" id="week-chart" aria-label="Weekly activity chart"></div>
             <p class="week-summary" id="week-summary"></p>
           </article>
 
-          <h2 class="section-label">Archive</h2>
+          <h2 class="section-label">Archive (grouped by year and month)</h2>
           <ul id="history-list" class="history-list"></ul>
-          <p id="history-empty" class="empty-state">No past days yet</p>
+          <p id="history-empty" class="empty-state">No saved history yet</p>
         </section>
       </main>
 
@@ -432,6 +509,39 @@
         </section>
 
         <section class="settings-block">
+          <h3>Appearance</h3>
+          <label class="field">
+            <span>Theme</span>
+            <select id="set-theme" class="select">
+              <option value="auto">Auto</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="settings-block">
+          <h3>AI Automation</h3>
+          <p class="settings-note">Gemini analyzes meals/exercises before save. Saved to your account and loaded on sign-in.</p>
+          <div id="ai-status" class="sync-status">
+            <span class="status-indicator error" id="ai-status-indicator"></span>
+            <span class="status-text" id="ai-status-text">AI off</span>
+          </div>
+          <label class="field">
+            <span>Gemini API key</span>
+            <input type="password" id="set-gemini-key" autocomplete="off" placeholder="AIza..." />
+          </label>
+          <label class="field">
+            <span>Gemini model</span>
+            <input type="text" id="set-gemini-model" autocomplete="off" placeholder="gemini-2.5-flash-lite" />
+          </label>
+          <div class="settings-actions">
+            <button type="button" class="btn btn-secondary btn-block" id="btn-ai-save">Save AI settings</button>
+            <button type="button" class="btn btn-ghost btn-block" id="btn-ai-test">Test AI connection</button>
+          </div>
+        </section>
+
+        <section class="settings-block">
           <h3>Account</h3>
           <p class="settings-note">Logged in as <span id="auth-email">loading...</span></p>
           <p class="settings-note" id="device-memory">🍪 This device is remembered for next time</p>
@@ -472,6 +582,7 @@
   <script src="js/burn.js"></script>
   <script src="js/gamify.js"></script>
   <script src="js/tips.js"></script>
+  <script src="js/gemini.js"></script>
   <script src="js/login-ui.js"></script>
   <script src="js/app.js"></script>
   <script>
@@ -482,7 +593,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        var swVersion = '2026-04-05-9';
+        var swVersion = '2026-04-08-6';
         navigator.serviceWorker
           .register('./sw.js?v=' + swVersion)
           .then(function (registration) {

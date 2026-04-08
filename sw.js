@@ -1,5 +1,5 @@
 /* Bump CACHE when you change CSS/JS so phones pick up updates. */
-const CACHE = 'verotrack-v2026-04-05-9';
+const CACHE = 'verotrack-v2026-04-08-6';
 
 function scopeUrl(path) {
   return new URL(path, self.registration.scope).href;
@@ -15,6 +15,7 @@ const PRECACHE_PATHS = [
   'js/burn.js',
   'js/gamify.js',
   'js/tips.js',
+  'js/gemini.js',
   'js/app.js',
   'manifest.json',
   'icons/icon.svg',

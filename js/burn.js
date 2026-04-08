@@ -69,6 +69,9 @@
   }
 
   function exerciseLineBurnKcal(ex, profile) {
+    if (ex && typeof ex.caloriesBurned === 'number' && ex.caloriesBurned > 0) {
+      return Math.round(ex.caloriesBurned);
+    }
     const kg = profileWeightKg(profile);
     if (!kg) return 0;
     const met = MET_BY_CATEGORY[ex.metCategory] != null ? MET_BY_CATEGORY[ex.metCategory] : MET_BY_CATEGORY.other;

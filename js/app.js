@@ -4,10 +4,16 @@
   const G = window.VeroTrackGamify;
   const T = window.VeroTrackTips;
   const Auth = window.VeroTrackAuth;
+  const AI = window.VeroTrackGemini;
 
   let data = null;
   let isInitialized = false;
   let statusTimer = null;
+  let activeTab = 'home';
+  let historyDirty = true;
+  let tipLoaded = false;
+  let aiFoodDraft = null;
+  let aiExerciseDraft = null;
 
   async function initializeApp() {
     try {
@@ -20,9 +26,12 @@
 
       // Get current user email
       const email = await Auth.getCurrentUser();
-      
+
       // Load user data
       data = await S.load(email);
+      if (email && S.syncWithCloud) {
+        data = await S.syncWithCloud(data, email);
+      }
 
       isInitialized = true;
       startApp();
@@ -30,6 +39,9 @@
       console.error('Failed to load user data:', err);
       const email = await Auth.getCurrentUser();
       data = await S.load(email);
+      if (email && S.syncWithCloud) {
+        data = await S.syncWithCloud(data, email);
+      }
       isInitialized = true;
       startApp();
     }
@@ -45,8 +57,16 @@
       statusTimer = setInterval(updateStatusTime, 60000);
     }
     today();
-    renderAll();
-    loadTip();
+    ensureAISettingsShape();
+    hydrateAIFromDataSettings();
+    applyTheme();
+    refreshAIStatusFromSettings();
+    renderAll(true);
+    renderRecentMeals();
+    if (!tipLoaded) {
+      loadTip();
+      tipLoaded = true;
+    }
 
     if (S.supabase) {
       S.supabase.auth.onAuthStateChange(async () => {
@@ -54,17 +74,8 @@
 
         const email = await Auth.getCurrentUser();
         if (!email) return;
-
-        const cloudData = await S.pullFromCloud(email);
-        if (cloudData && Object.keys(data.days || {}).length === 0) {
-          await S.save(cloudData, email);
-          data = await S.load(email);
-          renderAll();
-          showToast('Cloud data restored');
-          return;
-        }
-
-        await S.pushToCloud(data, email);
+        data = await S.syncWithCloud(data, email);
+        renderAll(true);
       });
       updateSyncUI();
     }
@@ -99,6 +110,15 @@
     homeSupplements: document.getElementById('home-supplements'),
     homeStreak: document.getElementById('home-streak'),
     homeStreakNum: document.getElementById('home-streak-num'),
+    proteinFocusCurrent: document.getElementById('protein-focus-current'),
+    proteinFocusGoal: document.getElementById('protein-focus-goal'),
+    proteinFocusTrack: document.getElementById('protein-focus-track'),
+    proteinFocusFill: document.getElementById('protein-focus-fill'),
+    proteinFocusNote: document.getElementById('protein-focus-note'),
+    homeCaloriesMain: document.getElementById('home-calories-main'),
+    homeStepsMain: document.getElementById('home-steps-main'),
+    homeBurnMain: document.getElementById('home-burn-main'),
+    homeWorkoutMain: document.getElementById('home-workout-main'),
     xpLevel: document.getElementById('xp-level'),
     xpTotal: document.getElementById('xp-total'),
     xpBarWrap: document.getElementById('xp-bar-wrap'),
@@ -133,12 +153,22 @@
     btnTipRefresh: document.getElementById('btn-tip-refresh'),
     formFood: document.getElementById('form-food'),
     foodName: document.getElementById('food-name'),
+    btnFoodAnalyze: document.getElementById('btn-food-analyze'),
+    foodPreview: document.getElementById('food-ai-preview'),
+    foodPreviewSource: document.getElementById('food-ai-source'),
     foodCalories: document.getElementById('food-calories'),
     foodProtein: document.getElementById('food-protein'),
+    foodCarbs: document.getElementById('food-carbs'),
+    foodFats: document.getElementById('food-fats'),
+    foodFiber: document.getElementById('food-fiber'),
+    foodSugar: document.getElementById('food-sugar'),
+    foodRecentWrap: document.getElementById('food-recent-wrap'),
+    foodRecent: document.getElementById('food-recent'),
     foodList: document.getElementById('food-list'),
     foodEmpty: document.getElementById('food-empty'),
     formSteps: document.getElementById('form-steps'),
     stepsInput: document.getElementById('steps-input'),
+    stepsQuick: document.getElementById('steps-quick'),
     waterTotal: document.getElementById('water-total'),
     waterChips: document.getElementById('water-chips'),
     formWaterCustom: document.getElementById('form-water-custom'),
@@ -150,6 +180,9 @@
     workoutHint: document.getElementById('workout-hint'),
     workoutTabBurn: document.getElementById('workout-tab-burn'),
     btnExerciseInspire: document.getElementById('btn-exercise-inspire'),
+    btnExerciseAnalyze: document.getElementById('btn-exercise-analyze'),
+    exerciseAIPreview: document.getElementById('exercise-ai-preview'),
+    exerciseAIMeta: document.getElementById('exercise-ai-meta'),
     formExercise: document.getElementById('form-exercise'),
     exName: document.getElementById('ex-name'),
     exMet: document.getElementById('ex-met'),
@@ -178,6 +211,14 @@
     setProtGoal: document.getElementById('set-prot-goal'),
     setStepGoal: document.getElementById('set-step-goal'),
     setWaterGoal: document.getElementById('set-water-goal'),
+    setTheme: document.getElementById('set-theme'),
+    setGeminiKey: document.getElementById('set-gemini-key'),
+    setGeminiModel: document.getElementById('set-gemini-model'),
+    aiStatus: document.getElementById('ai-status'),
+    aiStatusIndicator: document.getElementById('ai-status-indicator'),
+    aiStatusText: document.getElementById('ai-status-text'),
+    btnAiSave: document.getElementById('btn-ai-save'),
+    btnAiTest: document.getElementById('btn-ai-test'),
     btnSaveSettings: document.getElementById('btn-save-settings'),
     btnExport: document.getElementById('btn-export'),
     importFile: document.getElementById('import-file'),
@@ -229,6 +270,16 @@
     return getDay(S.todayKey());
   }
 
+  function readDay(key) {
+    if (!data.days[key]) {
+      return S.emptyDay();
+    }
+    const cloned = JSON.parse(JSON.stringify(data.days[key]));
+    const day = S.migrateDay(cloned);
+    day.supplementState = S.ensureCatalogIds(data.catalog, day.supplementState || {});
+    return day;
+  }
+
   function parseNonNegativeInt(value, label) {
     const t = String(value).trim();
     if (t === '') {
@@ -271,6 +322,17 @@
     return n;
   }
 
+  function parseOptionalNonNegativeNumber(value, label) {
+    const t = String(value).trim();
+    if (t === '') return 0;
+    const n = Number(t);
+    if (!Number.isFinite(n) || n < 0) {
+      showToast(`${label} must be ≥ 0`, true);
+      return null;
+    }
+    return n;
+  }
+
   function parseRequiredNonEmpty(value, label) {
     const t = String(value).trim();
     if (!t) {
@@ -283,11 +345,19 @@
   function foodTotals(day) {
     let cals = 0;
     let prot = 0;
+    let carbs = 0;
+    let fats = 0;
+    let fiber = 0;
+    let sugar = 0;
     day.food.forEach((f) => {
       cals += f.calories;
       prot += f.protein;
+      carbs += f.carbs || 0;
+      fats += f.fats || 0;
+      fiber += (f.nutrients && f.nutrients.fiber) || 0;
+      sugar += (f.nutrients && f.nutrients.sugar) || 0;
     });
-    return { calories: cals, protein: prot };
+    return { calories: cals, protein: prot, carbs, fats, fiber, sugar };
   }
 
   function supplementsTakenCount(day) {
@@ -492,6 +562,22 @@
     els.homeWater.textContent = String(day.waterMl || 0);
     els.heroIn.textContent = String(totals.calories);
 
+    const proteinPct = goals.proteinTargetG > 0 ? clampPct((totals.protein / goals.proteinTargetG) * 100) : 0;
+    if (els.proteinFocusCurrent) els.proteinFocusCurrent.textContent = String(roundProt(totals.protein));
+    if (els.proteinFocusGoal) els.proteinFocusGoal.textContent = String(goals.proteinTargetG || 0);
+    if (els.proteinFocusFill) els.proteinFocusFill.style.width = `${proteinPct}%`;
+    if (els.proteinFocusTrack) {
+      els.proteinFocusTrack.setAttribute('aria-valuenow', String(Math.round(proteinPct)));
+    }
+    if (els.proteinFocusNote) {
+      const remain = Math.max(0, roundProt((goals.proteinTargetG || 0) - totals.protein));
+      els.proteinFocusNote.textContent = remain > 0 ? `${remain} g remaining` : 'Goal reached';
+    }
+
+    if (els.homeCaloriesMain) els.homeCaloriesMain.textContent = `${totals.calories} kcal`;
+    if (els.homeStepsMain) els.homeStepsMain.textContent = String(day.steps || 0);
+    if (els.homeBurnMain) els.homeBurnMain.textContent = `${burn.total} kcal`;
+
     els.meterKcal.textContent = String(totals.calories);
     els.meterTarget.textContent = `of ${goals.calorieTarget} kcal goal`;
     const calRatio = goals.calorieTarget > 0 ? Math.min(1, totals.calories / goals.calorieTarget) : 0;
@@ -520,11 +606,19 @@
       els.homeWorkoutCard.classList.add('done');
       els.homeWorkoutCard.classList.remove('pending');
       els.homeWorkout.classList.remove('pending');
+      if (els.homeWorkoutMain) {
+        els.homeWorkoutMain.textContent = 'Done';
+        els.homeWorkoutMain.classList.add('done');
+      }
     } else {
       els.homeWorkout.textContent = 'Pending';
       els.homeWorkout.classList.add('pending');
       els.homeWorkoutCard.classList.remove('done');
       els.homeWorkoutCard.classList.add('pending');
+      if (els.homeWorkoutMain) {
+        els.homeWorkoutMain.textContent = 'Pending';
+        els.homeWorkoutMain.classList.remove('done');
+      }
     }
 
     els.homeSupplements.textContent = `${sup.taken} / ${sup.total}`;
@@ -583,7 +677,14 @@
           <button type="button" class="btn-remove" data-id="${f.id}">Remove</button>
         `;
         li.querySelector('.entry-title').textContent = f.name;
-        li.querySelector('.entry-meta').textContent = `${f.calories} kcal · ${roundProt(f.protein)} g protein`;
+        const metaLine = [
+          `${f.calories} kcal`,
+          `${roundProt(f.protein)} g protein`,
+          `${roundProt(f.carbs || 0)} g carbs`,
+          `${roundProt(f.fats || 0)} g fats`,
+        ].join(' · ');
+        const sourceLine = f.source ? ` (${f.source})` : '';
+        li.querySelector('.entry-meta').textContent = `${metaLine}${sourceLine}`;
         li.querySelector('.btn-remove').addEventListener('click', () => {
           day.food = day.food.filter((x) => x.id !== f.id);
           persist();
@@ -671,7 +772,8 @@
             <button type="button" class="btn-remove" data-ex-id="${ex.id}">Remove</button>
           `;
           li.querySelector('.entry-title').textContent = ex.name;
-          li.querySelector('.entry-meta').textContent = `${metLabel(ex.metCategory)} · ${ex.durationMin} min · ${ex.sets}×${ex.reps} @ ${ex.weight} · ~${kcal} kcal`;
+          const aiTag = ex.muscleGroup ? ` · ${ex.muscleGroup}` : '';
+          li.querySelector('.entry-meta').textContent = `${metLabel(ex.metCategory)}${aiTag} · ${ex.durationMin} min · ${ex.sets}×${ex.reps} @ ${ex.weight} · ~${kcal} kcal`;
           li.querySelector('.btn-remove').addEventListener('click', () => {
             day.exercises = day.exercises.filter((x) => x.id !== ex.id);
             persist();
@@ -683,11 +785,11 @@
     }
   }
 
-  function last7DayKeys() {
+  function lastNDayKeys(daysBack) {
     const keys = [];
     const d = new Date();
     d.setHours(0, 0, 0, 0);
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < daysBack; i += 1) {
       keys.push(formatDateKey(d));
       d.setDate(d.getDate() - 1);
     }
@@ -695,13 +797,13 @@
   }
 
   function renderWeekChart() {
-    const keys = last7DayKeys();
+    const keys = lastNDayKeys(30);
     let sumBurn = 0;
     let sumIn = 0;
     const maxBurn = Math.max(
       1,
       ...keys.map((k) => {
-        const day = getDay(k);
+        const day = readDay(k);
         return B.totalActiveBurn(day, data.profile).total;
       })
     );
@@ -709,7 +811,7 @@
     const chartPx = 100;
     els.weekChart.innerHTML = '';
     keys.forEach((k) => {
-      const day = getDay(k);
+      const day = readDay(k);
       const burn = B.totalActiveBurn(day, data.profile).total;
       const totals = foodTotals(day);
       sumBurn += burn;
@@ -733,9 +835,9 @@
       els.weekChart.appendChild(wrap);
     });
 
-    const avgBurn = Math.round(sumBurn / 7);
-    const avgIn = Math.round(sumIn / 7);
-    els.weekSummary.textContent = `Rolling 7d · ${avgIn} kcal in · ${avgBurn} kcal burn (est.).`;
+    const avgBurn = Math.round(sumBurn / Math.max(1, keys.length));
+    const avgIn = Math.round(sumIn / Math.max(1, keys.length));
+    els.weekSummary.textContent = `Rolling 30d · ${avgIn} kcal in · ${avgBurn} kcal burn (est.).`;
   }
 
   function renderHistory() {
@@ -752,36 +854,71 @@
       els.historyEmpty.hidden = true;
     }
 
+    const grouped = {};
     keys.forEach((key) => {
-      const day = getDay(key);
-      const totals = foodTotals(day);
-      const sup = supplementsTakenCount(day);
-      const burn = B.totalActiveBurn(day, data.profile);
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'history-item';
-      btn.innerHTML = `
-        <div class="history-date"></div>
-        <div class="history-summary"></div>
-      `;
-      btn.querySelector('.history-date').textContent = formatDisplayDate(key);
-      const w = day.workoutDone ? 'Done' : 'Pending';
-      btn.querySelector('.history-summary').textContent = `${totals.calories} in · ${burn.total} burn · ${roundProt(
-        totals.protein
-      )} g · ${day.steps || 0} steps · ${w} · ${day.waterMl || 0} ml H₂O`;
-      btn.addEventListener('click', () => openDayModal(key));
-      li.appendChild(btn);
-      els.historyList.appendChild(li);
+      const [year, month] = key.split('-');
+      if (!grouped[year]) grouped[year] = {};
+      if (!grouped[year][month]) grouped[year][month] = [];
+      grouped[year][month].push(key);
     });
 
+    Object.keys(grouped)
+      .sort((a, b) => Number(b) - Number(a))
+      .forEach((year) => {
+        const yearItem = document.createElement('li');
+        yearItem.className = 'history-year-card';
+        yearItem.innerHTML = `<h3 class="history-year-title">${year}</h3>`;
+
+        Object.keys(grouped[year])
+          .sort((a, b) => Number(b) - Number(a))
+          .forEach((monthKey, idx) => {
+            const monthKeys = grouped[year][monthKey];
+            const monthDate = new Date(Number(year), Number(monthKey) - 1, 1);
+            const monthLabel = monthDate.toLocaleDateString(undefined, { month: 'long' });
+
+            const monthDetails = document.createElement('details');
+            monthDetails.className = 'history-month';
+            monthDetails.open = idx === 0;
+            monthDetails.innerHTML = `
+              <summary><span>${monthLabel}</span><span>${monthKeys.length} days</span></summary>
+              <div class="history-days"></div>
+            `;
+
+            const daysWrap = monthDetails.querySelector('.history-days');
+            monthKeys.forEach((key) => {
+              const day = readDay(key);
+              const totals = foodTotals(day);
+              const burn = B.totalActiveBurn(day, data.profile);
+              const sup = supplementsTakenCount(day);
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'history-item';
+              button.innerHTML = `
+                <div class="history-date"></div>
+                <div class="history-summary"></div>
+              `;
+              button.querySelector('.history-date').textContent = formatDisplayDate(key);
+              const w = day.workoutDone ? 'Done' : 'Pending';
+              button.querySelector('.history-summary').textContent = `${totals.calories} in · ${burn.total} burn · ${roundProt(
+                totals.protein
+              )} g · ${day.steps || 0} steps · ${w} · ${sup.taken}/${sup.total} supplements · ${day.waterMl || 0} ml H2O`;
+              button.addEventListener('click', () => openDayModal(key));
+              daysWrap.appendChild(button);
+            });
+
+            yearItem.appendChild(monthDetails);
+          });
+
+        els.historyList.appendChild(yearItem);
+      });
+
     renderWeekChart();
+    historyDirty = false;
   }
 
   function openDayModal(dateKey) {
-    const day = getDay(dateKey);
+    const day = readDay(dateKey);
     const totals = foodTotals(day);
-    const sup = supplementsTakenCount(day);
     const burn = B.totalActiveBurn(day, data.profile);
     els.modalTitle.textContent = formatDisplayDate(dateKey);
 
@@ -791,7 +928,9 @@
         : `<ul>${day.food
             .map(
               (f) =>
-                `<li><strong>${escapeHtml(f.name)}</strong> — ${f.calories} kcal, ${roundProt(f.protein)} g protein</li>`
+                `<li><strong>${escapeHtml(f.name)}</strong> — ${f.calories} kcal, ${roundProt(f.protein)} g protein, ${roundProt(
+                  f.carbs || 0
+                )} g carbs, ${roundProt(f.fats || 0)} g fats</li>`
             )
             .join('')}</ul>`;
 
@@ -816,7 +955,8 @@
       <div class="detail-block">
         <h3>Energy</h3>
         <p>${totals.calories} kcal in · ${burn.total} kcal burn (walk ${burn.walk} + train ${burn.train})</p>
-        <p>${roundProt(totals.protein)} g protein · ${day.steps || 0} steps · Water ${day.waterMl || 0} ml</p>
+        <p>${roundProt(totals.protein)} g protein · ${roundProt(totals.carbs)} g carbs · ${roundProt(totals.fats)} g fats</p>
+        <p>${day.steps || 0} steps · Water ${day.waterMl || 0} ml · Fiber ${roundProt(totals.fiber)} g · Sugar ${roundProt(totals.sugar)} g</p>
         <p>Workout: <strong>${day.workoutDone ? 'Done' : 'Pending'}</strong></p>
       </div>
       <div class="detail-block">
@@ -849,6 +989,10 @@
   function openSettings() {
     const p = data.profile;
     const g = data.goals;
+    ensureAISettingsShape();
+    const defaultModel = AI ? AI.defaultModel : 'gemini-2.5-flash-lite';
+    const aiSettings = AI ? AI.getSettings() : { apiKey: '', model: '' };
+    const aiSaved = data.settings.ai || {};
     els.setWeightKg.value = p.weightKg > 0 ? String(p.weightKg) : '';
     els.setHeight.value = p.heightCm > 0 ? String(p.heightCm) : '';
     els.setAge.value = p.age > 0 ? String(p.age) : '';
@@ -857,6 +1001,10 @@
     els.setProtGoal.value = String(g.proteinTargetG);
     els.setStepGoal.value = String(g.stepGoal);
     els.setWaterGoal.value = String(g.waterGoalMl);
+    if (els.setTheme) els.setTheme.value = data.settings.theme || 'auto';
+    if (els.setGeminiKey) els.setGeminiKey.value = aiSaved.apiKey || aiSettings.apiKey || '';
+    if (els.setGeminiModel) els.setGeminiModel.value = aiSaved.model || aiSettings.model || defaultModel;
+    refreshAIStatusFromSettings();
     updateBmrReadout();
     els.settingsOverlay.hidden = false;
   }
@@ -877,6 +1025,127 @@
       b > 0 ? `Estimated BMR: ${b} kcal/day (reference only).` : 'Fill weight, height, and age for BMR.';
   }
 
+  function clampPct(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(100, value));
+  }
+
+  function applyTheme() {
+    const theme = (data && data.settings && data.settings.theme) || 'auto';
+    if (theme === 'dark' || theme === 'light') {
+      document.body.setAttribute('data-theme', theme);
+    } else {
+      document.body.removeAttribute('data-theme');
+    }
+  }
+
+  function ensureAISettingsShape() {
+    if (!data.settings || typeof data.settings !== 'object') {
+      data.settings = {};
+    }
+    if (!data.settings.ai || typeof data.settings.ai !== 'object') {
+      data.settings.ai = {};
+    }
+    if (typeof data.settings.ai.apiKey !== 'string') {
+      data.settings.ai.apiKey = '';
+    }
+    if (typeof data.settings.ai.model !== 'string' || !data.settings.ai.model.trim()) {
+      data.settings.ai.model = (AI && AI.defaultModel) || 'gemini-2.5-flash-lite';
+    }
+  }
+
+  function hydrateAIFromDataSettings() {
+    if (!AI || !data) return;
+    ensureAISettingsShape();
+    const aiLocal = AI.getSettings();
+    const savedApiKey = data.settings.ai.apiKey || '';
+    const savedModel = data.settings.ai.model || aiLocal.model || AI.defaultModel;
+
+    if (savedApiKey) {
+      AI.setApiKey(savedApiKey);
+    } else if (aiLocal.apiKey) {
+      data.settings.ai.apiKey = aiLocal.apiKey;
+    }
+
+    AI.setModel(savedModel);
+    data.settings.ai.model = savedModel;
+  }
+
+  function updateAIStatusUI(connected, label) {
+    if (!els.aiStatus || !els.aiStatusIndicator || !els.aiStatusText) return;
+    els.aiStatus.classList.toggle('connected', !!connected);
+    els.aiStatus.classList.toggle('off', !connected);
+    if (connected) {
+      els.aiStatusIndicator.className = 'status-indicator connected';
+      els.aiStatusText.textContent = label || 'AI on';
+    } else {
+      els.aiStatusIndicator.className = 'status-indicator error';
+      els.aiStatusText.textContent = label || 'AI off';
+    }
+  }
+
+  function refreshAIStatusFromSettings() {
+    if (!AI) {
+      updateAIStatusUI(false, 'AI unavailable');
+      return;
+    }
+    const aiSettings = AI.getSettings();
+    updateAIStatusUI(!!aiSettings.hasApiKey, aiSettings.hasApiKey ? `AI on (${aiSettings.model})` : 'AI off');
+  }
+
+  async function saveAISettingsFromInputs() {
+    if (!AI) {
+      updateAIStatusUI(false, 'AI unavailable');
+      return false;
+    }
+
+    const key = (els.setGeminiKey && els.setGeminiKey.value) || '';
+    const model = (els.setGeminiModel && els.setGeminiModel.value) || AI.defaultModel;
+
+    AI.setApiKey(key);
+    AI.setModel(model);
+    ensureAISettingsShape();
+    data.settings.ai.apiKey = key.trim();
+    data.settings.ai.model = model.trim() || AI.defaultModel;
+
+    await persist();
+    refreshAIStatusFromSettings();
+    return true;
+  }
+
+  function renderRecentMeals() {
+    if (!els.foodRecentWrap || !els.foodRecent || !AI) return;
+    const meals = AI.getRecentMeals();
+    els.foodRecent.innerHTML = '';
+    if (!Array.isArray(meals) || meals.length === 0) {
+      els.foodRecentWrap.hidden = true;
+      return;
+    }
+
+    meals.forEach((meal) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'recent-meal-chip';
+      button.textContent = meal;
+      button.addEventListener('click', () => {
+        els.foodName.value = meal;
+        els.foodName.focus();
+      });
+      els.foodRecent.appendChild(button);
+    });
+    els.foodRecentWrap.hidden = false;
+  }
+
+  function fillFoodFieldsFromDraft(draft) {
+    if (!draft) return;
+    els.foodCalories.value = String(Math.round(draft.calories || 0));
+    els.foodProtein.value = String(roundProt(draft.protein || 0));
+    if (els.foodCarbs) els.foodCarbs.value = String(roundProt(draft.carbs || 0));
+    if (els.foodFats) els.foodFats.value = String(roundProt(draft.fats || 0));
+    if (els.foodFiber) els.foodFiber.value = String(roundProt((draft.nutrients && draft.nutrients.fiber) || 0));
+    if (els.foodSugar) els.foodSugar.value = String(roundProt((draft.nutrients && draft.nutrients.sugar) || 0));
+  }
+
   function fillMetSelect() {
     els.exMet.innerHTML = '';
     Object.keys(B.MET_BY_CATEGORY).forEach((key) => {
@@ -887,14 +1156,18 @@
     });
   }
 
-  function renderAll() {
+  function renderAll(forceHistory) {
     renderHome();
     renderFoodList();
     renderStepsInput();
     renderWater();
     renderSupplements();
     renderWorkoutTab();
-    renderHistory();
+    if (forceHistory || activeTab === 'history') {
+      renderHistory();
+    } else {
+      historyDirty = true;
+    }
   }
 
   function isDuplicateFood(day, name, calories, protein) {
@@ -943,6 +1216,19 @@
     if (proteinRaw === null) return;
 
     const protein = Math.round(proteinRaw * 10) / 10;
+    const carbsRaw = parseOptionalNonNegativeNumber(els.foodCarbs ? els.foodCarbs.value : 0, 'Carbs');
+    if (carbsRaw === null) return;
+    const fatsRaw = parseOptionalNonNegativeNumber(els.foodFats ? els.foodFats.value : 0, 'Fats');
+    if (fatsRaw === null) return;
+    const fiberRaw = parseOptionalNonNegativeNumber(els.foodFiber ? els.foodFiber.value : 0, 'Fiber');
+    if (fiberRaw === null) return;
+    const sugarRaw = parseOptionalNonNegativeNumber(els.foodSugar ? els.foodSugar.value : 0, 'Sugar');
+    if (sugarRaw === null) return;
+
+    const carbs = Math.round(carbsRaw * 10) / 10;
+    const fats = Math.round(fatsRaw * 10) / 10;
+    const fiber = Math.round(fiberRaw * 10) / 10;
+    const sugar = Math.round(sugarRaw * 10) / 10;
     const day = today();
 
     if (isDuplicateFood(day, name, calories, protein)) {
@@ -955,15 +1241,85 @@
       name,
       calories,
       protein,
+      carbs,
+      fats,
+      nutrients: {
+        fiber,
+        sugar,
+        vitamins: (aiFoodDraft && aiFoodDraft.nutrients && aiFoodDraft.nutrients.vitamins) || {},
+        minerals: (aiFoodDraft && aiFoodDraft.nutrients && aiFoodDraft.nutrients.minerals) || {},
+      },
+      source: aiFoodDraft ? 'Gemini estimate (edited)' : 'Manual',
       addedAt: Date.now(),
     });
     const game = G.ensureGame(data);
     G.awardXp(game, G.XP_FOOD);
     persist();
     els.formFood.reset();
+    aiFoodDraft = null;
+    if (els.foodPreview) els.foodPreview.hidden = true;
+    renderRecentMeals();
     renderAll();
     showToast('Logged · +15 XP');
   });
+
+  if (els.btnFoodAnalyze) {
+    els.btnFoodAnalyze.addEventListener('click', async () => {
+      const mealText = parseRequiredNonEmpty(els.foodName.value, 'Meal description');
+      if (!mealText) return;
+      if (!AI) {
+        showToast('Gemini module is unavailable', true);
+        return;
+      }
+
+      const original = els.btnFoodAnalyze.textContent;
+      els.btnFoodAnalyze.disabled = true;
+      els.btnFoodAnalyze.textContent = 'Analyzing...';
+
+      try {
+        const result = await AI.analyzeMeal(mealText);
+        aiFoodDraft = result;
+        fillFoodFieldsFromDraft(result);
+        if (els.foodPreview) els.foodPreview.hidden = false;
+        if (els.foodPreviewSource) {
+          els.foodPreviewSource.textContent = result._fromFallback
+            ? `${result._fallbackMessage || 'Gemini unavailable. Quick local estimate loaded.'} Review before saving.`
+            : result._fromCache
+              ? 'Loaded from local AI cache. You can edit values before saving.'
+              : 'Generated by Gemini. Review and edit before saving.';
+        }
+        if (result._fromFallback && result._fallbackReason === 'QUOTA_EXCEEDED') {
+          updateAIStatusUI(false, 'AI quota reached');
+        } else if (result._fromFallback && result._fallbackReason === 'KEY_INVALID') {
+          updateAIStatusUI(false, 'AI key invalid');
+        } else {
+          refreshAIStatusFromSettings();
+        }
+        AI.rememberMeal(mealText);
+        renderRecentMeals();
+        showToast(
+          result._fromFallback
+            ? 'AI fallback estimate ready'
+            : result._fromCache
+              ? 'Used cached estimate'
+              : 'AI estimate ready'
+        );
+      } catch (err) {
+        updateAIStatusUI(false, 'AI error');
+        showToast((err && err.message) || 'Gemini meal analysis failed', true);
+      } finally {
+        els.btnFoodAnalyze.disabled = false;
+        els.btnFoodAnalyze.textContent = original;
+      }
+    });
+  }
+
+  if (els.foodName) {
+    els.foodName.addEventListener('input', () => {
+      aiFoodDraft = null;
+      if (els.foodPreview) els.foodPreview.hidden = true;
+    });
+  }
 
   els.formSteps.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -975,6 +1331,21 @@
     renderAll();
     showToast('Steps saved');
   });
+
+  if (els.stepsQuick) {
+    els.stepsQuick.querySelectorAll('button[data-add]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const add = Number(button.getAttribute('data-add'));
+        if (!Number.isFinite(add) || add <= 0) return;
+        const day = today();
+        day.steps = (day.steps || 0) + add;
+        els.stepsInput.value = String(day.steps);
+        persist();
+        renderAll();
+        showToast(`Added ${add} steps`);
+      });
+    });
+  }
 
   els.waterChips.querySelectorAll('.chip').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -1088,12 +1459,17 @@
       sets,
       reps,
       weight: w,
+      caloriesBurned: aiExerciseDraft ? aiExerciseDraft.caloriesBurned : 0,
+      muscleGroup: aiExerciseDraft ? aiExerciseDraft.muscleGroup : '',
+      exerciseType: aiExerciseDraft ? aiExerciseDraft.exerciseType : metCategory,
       addedAt: Date.now(),
     });
     const game = G.ensureGame(data);
     G.awardXp(game, G.XP_EXERCISE);
     persist();
     els.formExercise.reset();
+    aiExerciseDraft = null;
+    if (els.exerciseAIPreview) els.exerciseAIPreview.hidden = true;
     renderAll();
     const k = B.exerciseLineBurnKcal(day.exercises[day.exercises.length - 1], data.profile);
     showToast(data.profile.weightKg > 0 ? `Set logged · ~${k} kcal · +22 XP` : `Set logged · +22 XP`);
@@ -1110,6 +1486,71 @@
         showToast('Exercise API unavailable — type your own', true);
       }
       els.btnExerciseInspire.disabled = false;
+    });
+  }
+
+  if (els.btnExerciseAnalyze) {
+    els.btnExerciseAnalyze.addEventListener('click', async () => {
+      const name = parseRequiredNonEmpty(els.exName.value, 'Exercise name');
+      if (!name) return;
+      if (!AI) {
+        showToast('Gemini module is unavailable', true);
+        return;
+      }
+
+      const original = els.btnExerciseAnalyze.textContent;
+      els.btnExerciseAnalyze.disabled = true;
+      els.btnExerciseAnalyze.textContent = 'Analyzing...';
+      try {
+        const result = await AI.analyzeExercise(name, {
+          durationMin: Number(els.exDuration.value) || 0,
+          sets: Number(els.exSets.value) || 0,
+          reps: Number(els.exReps.value) || 0,
+          weight: Number(els.exWeight.value) || 0,
+          bodyWeightKg: data.profile.weightKg || 0,
+        });
+
+        aiExerciseDraft = result;
+        if (result.exerciseType && B.MET_BY_CATEGORY[result.exerciseType] != null) {
+          els.exMet.value = result.exerciseType;
+        }
+        if (result.caloriesBurned > 0 && (!els.exDuration.value || Number(els.exDuration.value) === 0)) {
+          els.exDuration.value = String(Math.max(10, Math.round(result.caloriesBurned / 8)));
+        }
+
+        if (els.exerciseAIMeta) {
+          const mode = result._fromFallback ? 'local fallback' : result._fromCache ? 'cache' : 'gemini';
+          els.exerciseAIMeta.textContent = `~${Math.round(result.caloriesBurned)} kcal · ${result.muscleGroup} · ${result.exerciseType} · ${mode}`;
+        }
+        if (result._fromFallback && result._fallbackReason === 'QUOTA_EXCEEDED') {
+          updateAIStatusUI(false, 'AI quota reached');
+        } else if (result._fromFallback && result._fallbackReason === 'KEY_INVALID') {
+          updateAIStatusUI(false, 'AI key invalid');
+        } else {
+          refreshAIStatusFromSettings();
+        }
+        if (els.exerciseAIPreview) els.exerciseAIPreview.hidden = false;
+        showToast(
+          result._fromFallback
+            ? 'AI fallback exercise estimate ready'
+            : result._fromCache
+              ? 'Used cached exercise estimate'
+              : 'Exercise estimate ready'
+        );
+      } catch (err) {
+        updateAIStatusUI(false, 'AI error');
+        showToast((err && err.message) || 'Gemini exercise analysis failed', true);
+      } finally {
+        els.btnExerciseAnalyze.disabled = false;
+        els.btnExerciseAnalyze.textContent = original;
+      }
+    });
+  }
+
+  if (els.exName) {
+    els.exName.addEventListener('input', () => {
+      aiExerciseDraft = null;
+      if (els.exerciseAIPreview) els.exerciseAIPreview.hidden = true;
     });
   }
 
@@ -1149,6 +1590,60 @@
     document.getElementById(id).addEventListener('change', updateBmrReadout);
   });
 
+  if (els.setTheme) {
+    els.setTheme.addEventListener('change', () => {
+      const next = els.setTheme.value || 'auto';
+      if (next === 'dark' || next === 'light') {
+        document.body.setAttribute('data-theme', next);
+      } else {
+        document.body.removeAttribute('data-theme');
+      }
+    });
+  }
+
+  if (els.btnAiSave) {
+    els.btnAiSave.addEventListener('click', async () => {
+      const originalText = els.btnAiSave.textContent;
+      els.btnAiSave.disabled = true;
+      els.btnAiSave.textContent = 'Saving...';
+      try {
+        const ok = await saveAISettingsFromInputs();
+        if (ok) {
+          showToast('AI settings saved');
+        }
+      } catch (err) {
+        showToast((err && err.message) || 'Could not save AI settings', true);
+      } finally {
+        els.btnAiSave.disabled = false;
+        els.btnAiSave.textContent = originalText;
+      }
+    });
+  }
+
+  if (els.btnAiTest) {
+    els.btnAiTest.addEventListener('click', async () => {
+      if (!AI) {
+        updateAIStatusUI(false, 'AI unavailable');
+        return;
+      }
+      const originalText = els.btnAiTest.textContent;
+      els.btnAiTest.disabled = true;
+      els.btnAiTest.textContent = 'Testing...';
+      try {
+        await saveAISettingsFromInputs();
+        const ping = await AI.testConnection();
+        updateAIStatusUI(true, `AI on (${ping.model})`);
+        showToast('AI key is working');
+      } catch (err) {
+        updateAIStatusUI(false, 'AI off');
+        showToast((err && err.message) || 'AI key test failed', true);
+      } finally {
+        els.btnAiTest.disabled = false;
+        els.btnAiTest.textContent = originalText;
+      }
+    });
+  }
+
   els.btnSaveSettings.addEventListener('click', () => {
     const w = parseFloat(els.setWeightKg.value);
     const h = parseFloat(els.setHeight.value);
@@ -1184,6 +1679,18 @@
     data.goals.proteinTargetG = pg;
     data.goals.stepGoal = sg;
     data.goals.waterGoalMl = wg;
+    if (els.setTheme) {
+      data.settings.theme = els.setTheme.value || 'auto';
+      applyTheme();
+    }
+    if (AI && els.setGeminiKey && els.setGeminiModel) {
+      ensureAISettingsShape();
+      data.settings.ai.apiKey = (els.setGeminiKey.value || '').trim();
+      data.settings.ai.model = (els.setGeminiModel.value || AI.defaultModel).trim() || AI.defaultModel;
+      AI.setApiKey(data.settings.ai.apiKey);
+      AI.setModel(data.settings.ai.model);
+      refreshAIStatusFromSettings();
+    }
 
     persist();
     closeSettings();
@@ -1198,7 +1705,7 @@
       const confirmed = confirm('Sign out and clear device memory? You will need to sign in again.');
       if (!confirmed) return;
       
-      Auth.logout();
+      await Auth.logout();
       closeSettings();
       showToast('Signed out. Redirecting...');
       
@@ -1220,46 +1727,22 @@
   // Call on startup
   updateAuthUI();
 
-  async function canReachCloudAuth() {
-    const cfg = window.VEROTRACK_SUPABASE || {};
-    const baseUrl = typeof cfg.url === 'string' ? cfg.url : '';
-    if (!baseUrl) return false;
-    if (typeof fetch === 'undefined') return true;
-
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 7000);
-
-    try {
-      await fetch(baseUrl + '/auth/v1/health', {
-        method: 'GET',
-        cache: 'no-store',
-        mode: 'no-cors',
-        signal: ctrl.signal,
-      });
-      return true;
-    } catch {
-      return false;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  async function getCloudUserSafe(sb) {
+  async function getCloudSessionSafe(sb) {
     const timeoutResult = new Promise((resolve) => {
-      setTimeout(() => resolve({ user: null, timedOut: true }), 6500);
+      setTimeout(() => resolve({ session: null, timedOut: true }), 7000);
     });
 
     try {
       const result = await Promise.race([
-        sb.auth.getUser().then(({ data }) => ({
-          user: (data && data.user) || null,
+        sb.auth.getSession().then(({ data }) => ({
+          session: (data && data.session) || null,
           timedOut: false,
         })),
         timeoutResult,
       ]);
       return result;
     } catch {
-      return { user: null, timedOut: false, failed: true };
+      return { session: null, timedOut: false, failed: true };
     }
   }
 
@@ -1269,50 +1752,55 @@
     const text = els.syncStatus.querySelector('.status-text');
 
     if (!sb) {
-      indicator.className = 'status-indicator';
+      indicator.className = 'status-indicator error';
       text.className = 'status-text';
       text.textContent = 'Sync unavailable';
       els.btnSyncLogin.hidden = true;
       els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.add('off');
       els.syncStatus.classList.remove('connected');
       return;
     }
 
-    const reachable = await canReachCloudAuth();
-    if (!reachable) {
-      indicator.className = 'status-indicator';
-      text.className = 'status-text';
-      text.textContent = 'Cloud auth unreachable';
-      els.btnSyncLogin.hidden = false;
-      els.btnSyncLogout.hidden = true;
-      els.syncStatus.classList.remove('connected');
-      return;
-    }
-
-    const { user, timedOut } = await getCloudUserSafe(sb);
+    const { session, timedOut, failed } = await getCloudSessionSafe(sb);
     if (timedOut) {
-      indicator.className = 'status-indicator';
+      indicator.className = 'status-indicator error';
       text.className = 'status-text';
       text.textContent = 'Cloud auth timeout';
       els.btnSyncLogin.hidden = false;
       els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.add('off');
       els.syncStatus.classList.remove('connected');
       return;
     }
 
-    if (user) {
+    if (failed) {
+      indicator.className = 'status-indicator error';
+      text.className = 'status-text';
+      text.textContent = 'Cloud sync error';
+      els.btnSyncLogin.hidden = false;
+      els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.add('off');
+      els.syncStatus.classList.remove('connected');
+      return;
+    }
+
+    const user = session && session.user ? session.user : null;
+    if (user && user.email) {
       indicator.className = 'status-indicator connected';
       text.className = 'status-text';
       text.textContent = `Synced as ${user.email}`;
       els.btnSyncLogin.hidden = true;
       els.btnSyncLogout.hidden = false;
+      els.syncStatus.classList.remove('off');
       els.syncStatus.classList.add('connected');
     } else {
-      indicator.className = 'status-indicator';
+      indicator.className = 'status-indicator error';
       text.className = 'status-text';
-      text.textContent = 'Not connected';
+      text.textContent = 'Cloud sync off';
       els.btnSyncLogin.hidden = false;
       els.btnSyncLogout.hidden = true;
+      els.syncStatus.classList.add('off');
       els.syncStatus.classList.remove('connected');
     }
   }
@@ -1441,6 +1929,7 @@
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-tab');
+      activeTab = tab;
       document.querySelectorAll('.tab-btn').forEach((b) => {
         b.classList.toggle('active', b === btn);
         b.removeAttribute('aria-current');
@@ -1450,14 +1939,18 @@
       document.querySelectorAll('.tab-panel').forEach((panel) => {
         panel.classList.toggle('active', panel.id === `tab-${tab}`);
       });
+
+      if (tab === 'history' && historyDirty) {
+        renderHistory();
+      }
     });
   });
 
   window.addEventListener('storage', async (e) => {
-    if (e.key === S.STORAGE_KEY) {
+    if (S.isDataStorageKey && S.isDataStorageKey(e.key)) {
       const email = await Auth.getCurrentUser();
       data = await S.load(email);
-      renderAll();
+      renderAll(true);
     }
   });
 

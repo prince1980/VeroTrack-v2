@@ -5,3 +5,10 @@ window.VEROTRACK_SUPABASE = {
   url: 'https://nhxkuppugjxtbmeimqyq.supabase.co',
   anonKey: 'sb_publishable_7ihTP84sdeKancFDaCep5w_ysBVwOMy'
 };
+
+// Optional global Gemini defaults.
+// Warning: any key hardcoded in frontend code is publicly visible in the deployed app.
+window.VEROTRACK_GEMINI_DEFAULT = {
+  defaultApiKey: '',
+  defaultModel: 'gemini-2.5-flash-lite',
+};
