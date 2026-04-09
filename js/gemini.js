@@ -190,6 +190,12 @@
   }
 
   async function generateContentOnce(model, prompt, apiKey) {
+    if (!apiKey && window.VeroTrackStorage && window.VeroTrackStorage.supabase) {
+      const { data, error } = await window.VeroTrackStorage.supabase.rpc('ask_gemini', { user_prompt: prompt });
+      if (error) return { ok: false, status: 500, json: async () => ({ error: { message: error.message } }) };
+      return { ok: true, status: 200, json: async () => data };
+    }
+
     const endpoint =
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}` +
       `:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -210,8 +216,9 @@
   async function callGemini(prompt) {
     const apiKey = (settings.apiKey || '').trim();
     const selectedModel = (settings.model || DEFAULT_MODEL).trim();
+    const hasProxy = !!(window.VeroTrackStorage && window.VeroTrackStorage.supabaseConfigured);
 
-    if (!apiKey) {
+    if (!apiKey && !hasProxy) {
       throw new Error('Gemini API key is missing. Add it in Settings > AI Automation.');
     }
 
