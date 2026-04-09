@@ -51,18 +51,6 @@ h4,
   letter-spacing: -0.02em;
 }
 
-/* Glassmorphism Cards */
-.lux-card,
-.strip-card,
-.tab-panel {
-  background: var(--glass-bg) !important;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--glass-border) !important;
-  border-radius: var(--radius-lg) !important;
-  box-shadow: var(--depth-shadow) !important;
-  transition: all var(--transition-fast) !important;
-}
 
 .lux-card:hover {
   border-color: var(--glass-border-highlight) !important;
