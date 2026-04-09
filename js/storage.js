@@ -188,9 +188,19 @@
     }
   }
 
+  function cloneAndTruncateForLocal(data) {
+    if (!data) return data;
+    const local = JSON.parse(JSON.stringify(data));
+    const keys = Object.keys(local.days || {}).sort((a, b) => (toDateKeyTs(a)||0) - (toDateKeyTs(b)||0));
+    if (keys.length > 30) {
+      for (let i = 0; i < keys.length - 30; i++) delete local.days[keys[i]];
+    }
+    return local;
+  }
+
   function saveLocalByEmail(data, email) {
     try {
-      localStorage.setItem(emailStorageKey(email), JSON.stringify(data));
+      localStorage.setItem(emailStorageKey(email), JSON.stringify(cloneAndTruncateForLocal(data)));
       return true;
     } catch {
       return false;
@@ -311,23 +321,28 @@
       return migrate(loadRaw());
     }
 
+    let bestData = null;
     try {
       const dbData = await loadFromDB(email);
-      if (dbData) return migrate(dbData);
+      if (dbData) bestData = dbData;
+    } catch (e) {}
 
+    try {
       const localData = loadLocalByEmail(email);
-      if (localData) return migrate(localData);
+      if (localData && (!bestData || dataUpdatedAtMs(localData) > dataUpdatedAtMs(bestData))) {
+         if (bestData && bestData.days) {
+             localData.days = { ...bestData.days, ...(localData.days || {}) };
+         }
+         bestData = localData;
+      }
+    } catch (e) {}
 
-      return migrate(null);
-    } catch {
-      const localData = loadLocalByEmail(email);
-      return migrate(localData || null);
-    }
+    return migrate(bestData);
   }
 
   function saveLocal(data) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cloneAndTruncateForLocal(data)));
       return true;
     } catch {
       return false;
