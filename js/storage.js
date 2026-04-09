@@ -364,16 +364,19 @@
     const normalized = migrate(stampUpdatedAt(data));
 
     if (!email) {
-      return saveLocal(normalized);
+      saveLocal(normalized);
+      return true;
     }
 
+    // Force synchronous fast persistence to prevent data loss on rapid app close
+    saveLocalByEmail(normalized, email);
+
     try {
-      await saveToDB(email, normalized);
-      saveLocalByEmail(normalized, email);
+      saveToDB(email, normalized).catch(e => console.error('IndexedDB sync error', e));
       queuePushToCloud(normalized, email);
       return true;
     } catch {
-      return saveLocalByEmail(normalized, email);
+      return true;
     }
   }
 

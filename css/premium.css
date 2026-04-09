@@ -1,0 +1,253 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Premium Dark Theme Core */
+  --bg-primary: #09090b;
+  --bg-secondary: #18181b;
+  --glass-bg: rgba(24, 24, 27, 0.6);
+  --glass-bg-hover: rgba(39, 39, 42, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-highlight: rgba(255, 255, 255, 0.15);
+  
+  --accent-primary: #10b981;    /* Vibrant Emerald */
+  --accent-primary-glow: rgba(16, 185, 129, 0.3);
+  --accent-secondary: #8b5cf6;  /* Vivid Purple */
+  --accent-secondary-glow: rgba(139, 92, 246, 0.3);
+  --accent-blue: #3b82f6;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --depth-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --float-shadow: 0 16px 40px -12px rgba(16, 185, 129, 0.2);
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bouncy: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(circle at 15% 50%, var(--accent-secondary-glow), transparent 25%),
+    radial-gradient(circle at 85% 30%, var(--accent-primary-glow), transparent 25%);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .brand-text {
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Glassmorphism Cards */
+.lux-card, .strip-card, .tab-panel {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--depth-shadow) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.lux-card:hover {
+  border-color: var(--glass-border-highlight) !important;
+  transform: translateY(-2px);
+}
+
+/* Typography Overrides */
+.lux-card h2, .panel-title {
+  color: #fff !important;
+  font-weight: 600 !important;
+  font-size: 1.25rem !important;
+}
+
+.metric-grid .metric-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 16px !important;
+  border: 1px solid var(--glass-border) !important;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.metric-card .metric-val {
+  font-family: 'Outfit', sans-serif !important;
+  font-size: 1.8rem !important;
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.metric-card .metric-lbl {
+  font-size: 0.85rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted) !important;
+  margin-bottom: 8px !important;
+}
+
+/* Modern Input Fields */
+input, select {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid var(--glass-border) !important;
+  color: #fff !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 12px 16px !important;
+  font-family: 'Inter', sans-serif !important;
+  transition: all var(--transition-fast) !important;
+}
+
+input:focus, select:focus {
+  outline: none !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 3px var(--accent-primary-glow) !important;
+}
+
+/* Buttons */
+button, .btn {
+  font-family: 'Inter', sans-serif !important;
+  border-radius: var(--radius-pill) !important;
+  font-weight: 600 !important;
+  transition: all var(--transition-bouncy) !important;
+  cursor: pointer;
+}
+
+button.primary, #btn-add-food, .action-main, .vt-btn-primary {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #059669 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px var(--accent-primary-glow) !important;
+  padding: 12px 24px !important;
+}
+
+button.primary:hover, #btn-add-food:hover, .action-main:hover {
+  transform: scale(1.05) translateY(-2px) !important;
+  box-shadow: var(--float-shadow) !important;
+}
+
+/* Navigation Tabs */
+.tab-nav {
+  background: rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+  margin: 0 -16px 20px !important;
+  padding: 0 16px !important;
+}
+
+.tab-btn {
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  padding: 16px 0 !important;
+  position: relative;
+  background: transparent !important;
+  border: none !important;
+}
+
+.tab-btn.active {
+  color: var(--accent-primary) !important;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent-primary);
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 -2px 8px var(--accent-primary-glow);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border-highlight);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Log Entries */
+.log-item, .history-day {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-md) !important;
+  margin-bottom: 12px !important;
+  padding: 16px !important;
+  transition: transform var(--transition-fast) !important;
+}
+
+.log-item:hover, .history-day:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--glass-border-highlight) !important;
+}
+
+/* Micro-animations */
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-panel.active {
+  animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+.metric-card {
+  animation: slideUpFade 0.5s var(--transition-bouncy) backwards;
+}
+.metric-grid .metric-card:nth-child(1) { animation-delay: 0.05s; }
+.metric-grid .metric-card:nth-child(2) { animation-delay: 0.1s; }
+.metric-grid .metric-card:nth-child(3) { animation-delay: 0.15s; }
+.metric-grid .metric-card:nth-child(4) { animation-delay: 0.2s; }
+
+/* Status Rail (Device Frame if visible) */
+.status-rail {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+/* Progress Rings Override */
+.ring-track {
+  stroke: rgba(255, 255, 255, 0.05) !important;
+}
+.ring-fill.cal { stroke: var(--accent-primary) !important; filter: drop-shadow(0 0 6px var(--accent-primary-glow)); }
+.ring-fill.pro { stroke: var(--accent-secondary) !important; filter: drop-shadow(0 0 6px var(--accent-secondary-glow)); }
+.ring-fill.step { stroke: var(--accent-blue) !important; filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.3)); }
+
+.hero-stats-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Food Pill Tags */
+.quick-food-btn {
+  background: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius-pill) !important;
+  padding: 6px 14px !important;
+  font-size: 0.85rem !important;
+}
+.quick-food-btn:hover {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: #000 !important;
+  transform: translateY(-2px);
+}

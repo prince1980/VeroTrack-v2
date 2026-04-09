@@ -496,8 +496,7 @@
         client.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: getAppRedirectUrl(),
-            skipBrowserRedirect: true,
+            redirectTo: getAppRedirectUrl()
           },
         }),
         CLOUD_CALL_TIMEOUT_MS,
@@ -507,24 +506,6 @@
         throw new Error(error.message || 'Could not start Google sign-in');
       }
 
-      const authUrl = data && data.url;
-      if (!authUrl) {
-        // Fallback to Supabase-managed browser redirect mode if URL isn't returned.
-        await withTimeout(
-          client.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-              redirectTo: getAppRedirectUrl(),
-              skipBrowserRedirect: false,
-            },
-          }),
-          CLOUD_CALL_TIMEOUT_MS,
-          'Cloud Google sign-in timed out'
-        );
-        return { success: true };
-      }
-
-      window.location.assign(authUrl);
       return { success: true };
     } catch (err) {
       if (isNetworkLikeError(err)) {
@@ -663,26 +644,18 @@
       return normalizeEmail(supabaseUser.email);
     }
 
-    // If cloud auth is configured, require an active cloud session.
-    // This avoids "logged in but sync off" local-only states.
     if (sb) {
-      // If there is no active cloud session, allow locally cached account on this trusted device.
       const sessionEmail = normalizeEmail(safeStorageGet(SESSION_STORAGE_KEY));
       if (sessionEmail) {
-        const user = await getUser(sessionEmail);
-        if (user) {
-          currentUser = sessionEmail;
-          return currentUser;
-        }
+        // Trust session unconditionally if they previously verified authentication locally.
+        currentUser = sessionEmail;
+        return currentUser;
       }
 
       const remembered = normalizeEmail(getCookie(USER_EMAIL_COOKIE_NAME));
       if (remembered) {
-        const user = await getUser(remembered);
-        if (user) {
-          currentUser = remembered;
-          return currentUser;
-        }
+        currentUser = remembered;
+        return currentUser;
       }
 
       return null;
@@ -690,20 +663,14 @@
 
     const sessionEmail = normalizeEmail(safeStorageGet(SESSION_STORAGE_KEY));
     if (sessionEmail) {
-      const user = await getUser(sessionEmail);
-      if (user) {
-        currentUser = sessionEmail;
-        return currentUser;
-      }
+      currentUser = sessionEmail;
+      return currentUser;
     }
 
     const remembered = normalizeEmail(getCookie(USER_EMAIL_COOKIE_NAME));
     if (remembered) {
-      const user = await getUser(remembered);
-      if (user) {
-        currentUser = remembered;
-        return currentUser;
-      }
+      currentUser = remembered;
+      return currentUser;
     }
 
     return null;
