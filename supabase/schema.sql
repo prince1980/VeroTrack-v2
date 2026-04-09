@@ -13,24 +13,7 @@ create index if not exists idx_user_data_updated_at
 
 alter table public.user_data enable row level security;
 
--- Users can only read/write their own row
-create policy if not exists "user_data_select_own"
-  on public.user_data
-  for select
-  using (auth.uid() = user_id);
-
-create policy if not exists "user_data_insert_own"
-  on public.user_data
-  for insert
-  with check (auth.uid() = user_id);
-
-create policy if not exists "user_data_update_own"
-  on public.user_data
-  for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-create policy if not exists "user_data_delete_own"
-  on public.user_data
-  for delete
-  using (auth.uid() = user_id);
+create policy "user_data_select_own" on public.user_data for select using (auth.uid() = user_id);
+create policy "user_data_insert_own" on public.user_data for insert with check (auth.uid() = user_id);
+create policy "user_data_update_own" on public.user_data for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "user_data_delete_own" on public.user_data for delete using (auth.uid() = user_id);
