@@ -26,6 +26,27 @@
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
 
+  function truncate(text, max) {
+    const t = String(text || '');
+    if (t.length <= max) return t;
+    return t.slice(0, Math.max(0, max - 1)).trimEnd() + '…';
+  }
+
+  function getTimeContext() {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 11) return 'morning';
+    if (h >= 11 && h < 17) return 'afternoon';
+    if (h >= 17 && h < 21) return 'gym';
+    return 'evening';
+  }
+
+  function getContextLabel(context) {
+    if (context === 'morning') return 'Morning focus';
+    if (context === 'afternoon') return 'Afternoon momentum';
+    if (context === 'gym') return 'Gym window';
+    return 'Evening closeout';
+  }
+
   function showToast(msg, duration) {
     const t = el('toast');
     if (!t) return;
@@ -130,11 +151,15 @@
       detailPanel.hidden = true;
       if (qBtn) qBtn.classList.add('is-active');
       if (dBtn) dBtn.classList.remove('is-active');
+      if (qBtn) qBtn.setAttribute('aria-selected', 'true');
+      if (dBtn) dBtn.setAttribute('aria-selected', 'false');
     } else {
       quickPanel.hidden  = true;
       detailPanel.hidden = false;
       if (qBtn) qBtn.classList.remove('is-active');
       if (dBtn) dBtn.classList.add('is-active');
+      if (qBtn) qBtn.setAttribute('aria-selected', 'false');
+      if (dBtn) dBtn.setAttribute('aria-selected', 'true');
       // Focus name field
       setTimeout(() => {
         const nf = el('food-name');
@@ -189,19 +214,26 @@
   /* ─── Repeat a meal ───────────────────────────────────────────── */
   async function repeatMeal(meal) {
     const data  = getData();
+    const S = window.VeroTrackStorage;
     if (!data) return;
     const key   = todayKey();
     if (!data.days[key]) data.days[key] = window.VeroTrackStorage.emptyDay();
 
     const clone = {
+      id:       S && S.uid ? S.uid() : `meal_${Date.now()}`,
       name:     meal.name,
       calories: meal.calories || 0,
       protein:  meal.protein  || 0,
       carbs:    meal.carbs    || 0,
       fats:     meal.fats     || 0,
-      fiber:    meal.fiber    || 0,
-      sugar:    meal.sugar    || 0,
-      ts:       Date.now(),
+      nutrients: {
+        fiber: (meal.nutrients && meal.nutrients.fiber) || meal.fiber || 0,
+        sugar: (meal.nutrients && meal.nutrients.sugar) || meal.sugar || 0,
+        vitamins: (meal.nutrients && meal.nutrients.vitamins) || {},
+        minerals: (meal.nutrients && meal.nutrients.minerals) || {},
+      },
+      source: 'Quick repeat',
+      addedAt: Date.now(),
     };
     data.days[key].food.push(clone);
     await persist(data);
@@ -258,40 +290,220 @@
     if (bar)  bar.style.width  = pct + '%';
   }
 
+  function workoutStreakDays(data) {
+    if (!data || !data.days) return 0;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    let streak = 0;
+    for (let i = 0; i < 365; i += 1) {
+      const k = dateKey(d);
+      const day = data.days[k];
+      if (day && day.workoutDone) {
+        streak += 1;
+        d.setDate(d.getDate() - 1);
+        continue;
+      }
+      break;
+    }
+    return streak;
+  }
+
+  function fallbackHomeState() {
+    return {
+      key: todayKey(),
+      day: null,
+      waterMl: 0,
+      totalCal: 0,
+      proteinG: 0,
+      steps: 0,
+      workoutDone: false,
+      sessionActive: !!(
+        window.VTSession &&
+        typeof window.VTSession.isActive === 'function' &&
+        window.VTSession.isActive()
+      ),
+      goalWater: 2500,
+      goalCal: 2200,
+      goalProtein: 150,
+      goalSteps: 10000,
+      waterPct: 0,
+      calPct: 0,
+      proteinDeficit: 150,
+      stepDeficit: 10000,
+      streakDays: 0,
+      timeContext: getTimeContext(),
+      lastMeal: null,
+      lastWorkoutName: null,
+    };
+  }
+
+  function getHomeState() {
+    const data = getData();
+    if (!data) return fallbackHomeState();
+    const key = todayKey();
+    const day = data.days && data.days[key] ? data.days[key] : window.VeroTrackStorage.emptyDay();
+    const goals = data.goals || {};
+    const food = Array.isArray(day.food) ? day.food : [];
+
+    const totalCal = food.reduce((sum, item) => sum + (item.calories || 0), 0);
+    const proteinG = food.reduce((sum, item) => sum + (item.protein || 0), 0);
+    const steps = day.steps || 0;
+    const waterMl = day.waterMl || 0;
+    const goalWater = goals.waterGoalMl || 2500;
+    const goalCal = goals.calorieTarget || 2200;
+    const goalProtein = goals.proteinTargetG || 150;
+    const goalSteps = goals.stepGoal || 10000;
+    const workoutDone = !!day.workoutDone;
+    const sessionActive = !!(
+      window.VTSession &&
+      typeof window.VTSession.isActive === 'function' &&
+      window.VTSession.isActive()
+    );
+
+    return {
+      key,
+      day,
+      waterMl,
+      totalCal,
+      proteinG,
+      steps,
+      workoutDone,
+      sessionActive,
+      goalWater,
+      goalCal,
+      goalProtein,
+      goalSteps,
+      waterPct: Math.min(100, Math.round((waterMl / goalWater) * 100)),
+      calPct: Math.min(100, Math.round((totalCal / goalCal) * 100)),
+      proteinDeficit: Math.max(0, Math.round(goalProtein - proteinG)),
+      stepDeficit: Math.max(0, goalSteps - steps),
+      streakDays: workoutStreakDays(data),
+      timeContext: getTimeContext(),
+      lastMeal: getLastMeal(),
+      lastWorkoutName: getLastWorkoutName(),
+    };
+  }
+
+  function createActionCard(config) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = config.id;
+    btn.className = [
+      'eng-action-btn',
+      `eng-action-btn--${config.tone || 'blue'}`,
+      config.priority ? 'is-priority' : '',
+      config.done ? 'is-done' : '',
+    ].filter(Boolean).join(' ');
+    btn.setAttribute('data-hub-action', config.action);
+    btn.setAttribute('aria-label', config.ariaLabel || config.label);
+    btn.innerHTML = `
+      <span class="eng-action-btn__icon">${config.icon}</span>
+      <span class="eng-action-btn__label">${escHtml(config.label)}</span>
+      <span class="eng-action-btn__sub"${config.action === 'workout' ? ' id="eng-workout-sub"' : ''}>${escHtml(config.sub)}</span>
+    `;
+    return btn;
+  }
+
+  function renderActionHub(state, priorityAction) {
+    const hub = el('eng-action-hub');
+    if (!hub || !state) return;
+
+    const mealSub = state.lastMeal
+      ? `Repeat ${truncate(state.lastMeal.name, 18)}`
+      : 'Quick add from recents';
+
+    const workoutSub = state.workoutDone
+      ? 'Completed today'
+      : state.sessionActive
+        ? 'Session active'
+        : 'Start now';
+
+    const cards = [
+      {
+        id: 'eng-water-btn',
+        action: 'water',
+        icon: '💧',
+        label: '+ Drink Water',
+        sub: `+250 ml · ${state.waterMl} ml today`,
+        tone: 'blue',
+      },
+      {
+        id: 'eng-meal-btn',
+        action: 'meal',
+        icon: '🍽️',
+        label: '+ Log Meal',
+        sub: mealSub,
+        tone: 'blue',
+      },
+      {
+        id: 'eng-workout-btn',
+        action: 'workout',
+        icon: state.workoutDone ? '✅' : (state.sessionActive ? '⏱' : '🏋️'),
+        label: state.sessionActive ? '+ Continue Workout' : '+ Start Workout',
+        sub: workoutSub,
+        tone: 'green',
+        done: state.workoutDone,
+      },
+    ].map(card => ({ ...card, priority: priorityAction === card.action }));
+
+    hub.innerHTML = '';
+    cards.forEach(card => hub.appendChild(createActionCard(card)));
+  }
+
   /* ─── HOME — Quick Log Strip ─────────────────────────────────── */
   function buildHomeStrip() {
     const scroll = el('eng-quick-scroll');
-    if (!scroll) return;
+    const state = getHomeState();
+    if (!scroll || !state) return;
 
-    const lastMeal    = getLastMeal();
-    const lastWorkout = getLastWorkoutName();
     const items = [];
 
-    // Repeat last meal
-    if (lastMeal) {
+    if (state.lastMeal) {
       items.push({
-        label: `↩ ${lastMeal.name.length > 18 ? lastMeal.name.slice(0,18)+'…' : lastMeal.name}`,
-        sub:   `${lastMeal.calories||0} kcal`,
-        cls:   'eng-quick-item--meal',
-        action: () => repeatMeal(lastMeal),
+        label: `↩ ${truncate(state.lastMeal.name, 20)}`,
+        sub: `${state.lastMeal.calories || 0} kcal`,
+        cls: 'eng-quick-item--meal',
+        action: () => repeatMeal(state.lastMeal),
       });
     }
 
-    // Water quick-add
+    if (state.timeContext === 'afternoon' && state.stepDeficit > 0) {
+      items.push({
+        label: '+2,000 steps 🚶',
+        sub: 'Quick catch-up',
+        cls: 'eng-quick-item--workout',
+        action: () => quickAddSteps(2000),
+      });
+      items.push({
+        label: '+5,000 steps 🚶',
+        sub: 'Momentum boost',
+        cls: 'eng-quick-item--workout',
+        action: () => quickAddSteps(5000),
+      });
+    }
+
     [250, 500, 750].forEach(ml => {
       items.push({
         label: `+${ml}ml 💧`,
-        cls:   'eng-quick-item--water',
+        cls: 'eng-quick-item--water',
         action: () => quickAddWater(ml),
       });
     });
 
-    // Last workout
-    if (lastWorkout) {
+    if (state.timeContext === 'evening' && state.proteinDeficit > 0) {
       items.push({
-        label: `↩ ${lastWorkout.length > 16 ? lastWorkout.slice(0,16)+'…' : lastWorkout}`,
-        sub:   'Last workout',
-        cls:   'eng-quick-item--workout',
+        label: `+ Protein (${state.proteinDeficit}g left)`,
+        sub: 'Tap meal shortcut',
+        cls: 'eng-quick-item--meal',
+        action: () => quickMealAction(),
+      });
+    }
+
+    if (state.lastWorkoutName) {
+      items.push({
+        label: `↩ ${truncate(state.lastWorkoutName, 18)}`,
+        sub: 'Last workout',
+        cls: 'eng-quick-item--workout',
         action: () => switchTab('workout'),
       });
     }
@@ -301,14 +513,14 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `eng-quick-item ${item.cls || ''}`;
-      btn.innerHTML = `<span class="eng-quick-item__label">${item.label}</span>
-        ${item.sub ? `<span class="eng-quick-item__sub">${item.sub}</span>` : ''}`;
+      btn.innerHTML = `<span class="eng-quick-item__label">${escHtml(item.label)}</span>
+        ${item.sub ? `<span class="eng-quick-item__sub">${escHtml(item.sub)}</span>` : ''}`;
       btn.addEventListener('click', item.action);
       scroll.appendChild(btn);
     });
   }
 
-  /* ─── Home action buttons ─────────────────────────────────────── */
+  /* ─── Home action handlers ────────────────────────────────────── */
   async function quickAddWater(ml) {
     const data = getData();
     if (!data) return;
@@ -316,13 +528,12 @@
     if (!data.days[key]) data.days[key] = window.VeroTrackStorage.emptyDay();
     data.days[key].waterMl = (data.days[key].waterMl || 0) + ml;
     await persist(data);
-    showToast(`+${ml} ml logged 💧`, 1800);
+    showToast(`+${ml} ml logged 💧`, 1600);
 
-    // Flash button
-    const waterBtn = el('eng-water-btn') || el('hub-water-btn');
+    const waterBtn = el('eng-water-btn');
     if (waterBtn) {
       waterBtn.classList.add('is-tapped');
-      setTimeout(() => waterBtn.classList.remove('is-tapped'), 400);
+      setTimeout(() => waterBtn.classList.remove('is-tapped'), 280);
     }
 
     triggerRerender();
@@ -330,33 +541,82 @@
     updateHomeProgress();
   }
 
+  async function quickAddSteps(add) {
+    const data = getData();
+    if (!data) return;
+    const key = todayKey();
+    if (!data.days[key]) data.days[key] = window.VeroTrackStorage.emptyDay();
+    data.days[key].steps = (data.days[key].steps || 0) + add;
+    await persist(data);
+    showToast(`+${add.toLocaleString()} steps`, 1600);
+    triggerRerender();
+    updateStepsDisplay();
+    updateHomeProgress();
+  }
+
+  async function quickMealAction() {
+    const state = getHomeState();
+    if (!state) return;
+    if (state.lastMeal) {
+      await repeatMeal(state.lastMeal);
+      return;
+    }
+    switchTab('log');
+    setTimeout(() => setLogMode('quick'), 100);
+    showToast('Add your first meal to unlock 1-tap repeats', 2100);
+  }
+
+  function quickWorkoutAction() {
+    const state = getHomeState();
+    if (!state) return;
+    switchTab('workout');
+
+    if (state.workoutDone) {
+      showToast('Workout already logged today', 1500);
+      return;
+    }
+
+    const sessionApi = window.VTSession;
+    if (sessionApi && typeof sessionApi.startFromAction === 'function') {
+      const started = sessionApi.startFromAction();
+      if (started) showToast('Workout session started', 1500);
+      return;
+    }
+
+    const heroBtn = el('btn-workout-toggle');
+    if (heroBtn) heroBtn.click();
+  }
+
   function wireHomeButtons() {
-    // Home Water button → +250ml instant
-    const wBtn = el('eng-water-btn');
-    if (wBtn) wBtn.addEventListener('click', () => quickAddWater(250));
+    const actionHub = el('eng-action-hub');
+    if (actionHub && !actionHub._wired) {
+      actionHub._wired = true;
+      actionHub.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-hub-action]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-hub-action');
+        if (action === 'water') {
+          await quickAddWater(250);
+          return;
+        }
+        if (action === 'meal') {
+          await quickMealAction();
+          return;
+        }
+        if (action === 'workout') {
+          quickWorkoutAction();
+        }
+      });
+    }
 
-    // Home Meal button → Log tab, quick mode
-    const mBtn = el('eng-meal-btn');
-    if (mBtn) mBtn.addEventListener('click', () => {
-      switchTab('log');
-      setTimeout(() => setLogMode('quick'), 100);
-    });
-
-    // Home Workout button → Train tab
-    const wkBtn = el('eng-workout-btn');
-    if (wkBtn) wkBtn.addEventListener('click', () => switchTab('workout'));
-
-    // Log tab: + Add new meal opens detailed mode
     const addNew = el('btn-add-new-meal');
     if (addNew) addNew.addEventListener('click', () => setLogMode('detailed'));
 
-    // Mode toggle buttons
     const qBtn = el('eng-mode-quick');
     const dBtn = el('eng-mode-detailed');
     if (qBtn) qBtn.addEventListener('click', () => setLogMode('quick'));
     if (dBtn) dBtn.addEventListener('click', () => setLogMode('detailed'));
 
-    // Log water chips (quick mode)
     const wChips = el('water-chips');
     if (wChips) {
       wChips.addEventListener('click', async e => {
@@ -366,7 +626,6 @@
       });
     }
 
-    // Custom water toggle in log tab
     const wcToggle = el('wc-custom-toggle');
     const wcForm   = el('form-water-custom');
     if (wcToggle && wcForm) {
@@ -376,7 +635,6 @@
       });
     }
 
-    // Tab switches → refresh data
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         setTimeout(() => {
@@ -391,83 +649,147 @@
     });
   }
 
+  function setProgressStatus(elm, status) {
+    if (!elm) return;
+    elm.classList.remove('is-done', 'is-alert', 'is-neutral');
+    if (status) elm.classList.add(status);
+  }
+
   /* ─── Home compact progress ───────────────────────────────────── */
   function updateHomeProgress() {
-    const data = getData();
-    if (!data) return;
-    const key  = todayKey();
-    const day  = data.days && data.days[key];
-    const goal = data.goals || {};
+    const state = getHomeState();
+    if (!state) return;
 
-    const waterMl  = (day && day.waterMl)  || 0;
-    const totalCal = ((day && day.food) || []).reduce((s,f) => s+(f.calories||0), 0);
-    const steps    = (day && day.steps)    || 0;
-    const workout  = day && day.workoutDone;
+    const waterLabel = state.waterMl === 0
+      ? 'Start first drink'
+      : state.waterPct >= 100
+        ? 'Goal reached'
+        : `${state.waterMl} ml logged`;
 
-    const goalWater = goal.waterGoalMl   || 2500;
-    const goalCal   = goal.calorieTarget || 2200;
+    const calLabel = state.totalCal === 0
+      ? 'Log first meal'
+      : state.calPct >= 100
+        ? 'Target reached'
+        : `${state.totalCal} kcal logged`;
 
-    const pWater = Math.min(100, Math.round((waterMl / goalWater) * 100));
-    const pCal   = Math.min(100, Math.round((totalCal / goalCal)  * 100));
+    setBar('eng-prog-hydrate', 'eng-prog-hydrate-val', state.waterPct, waterLabel);
+    setBar('eng-prog-cal', 'eng-prog-cal-val', state.calPct, calLabel);
 
-    setBar('eng-prog-hydrate',  'eng-prog-hydrate-val',  pWater, `${pWater}%`);
-    setBar('eng-prog-cal',      'eng-prog-cal-val',       pCal,   `${pCal}%`);
-
+    const waterVal = el('eng-prog-hydrate-val');
+    const calVal = el('eng-prog-cal-val');
     const wkBar = el('eng-prog-workout');
     const wkVal = el('eng-prog-workout-val');
-    if (wkBar) wkBar.style.width = workout ? '100%' : '0%';
+
+    setProgressStatus(waterVal, state.waterPct >= 100 ? 'is-done' : (state.waterMl === 0 ? 'is-alert' : 'is-neutral'));
+    setProgressStatus(calVal, state.totalCal === 0 ? 'is-alert' : 'is-neutral');
+
+    if (wkBar) wkBar.style.width = state.workoutDone ? '100%' : (state.sessionActive ? '70%' : '0%');
     if (wkVal) {
-      wkVal.textContent = workout ? 'Done ✓' : 'Not started';
-      wkVal.classList.toggle('is-done', !!workout);
+      wkVal.textContent = state.workoutDone ? 'Done ✓' : (state.sessionActive ? 'In session' : 'Start session');
+      setProgressStatus(wkVal, state.workoutDone ? 'is-done' : 'is-alert');
     }
 
-    // Smart next action
-    updateNextAction(waterMl, totalCal, goalCal, goalWater, steps, goal.stepGoal || 10000, workout);
+    const priorityAction = updateNextAction(state);
+    renderActionHub(state, priorityAction);
 
-    // Update workout button state on home
-    const wkBtn = el('eng-workout-btn');
-    const wkSub = el('eng-workout-sub');
-    if (wkBtn && wkSub) {
-      wkSub.textContent = workout ? 'Done ✓' : 'Start';
-      wkBtn.classList.toggle('is-done', !!workout);
+    const streakEl = el('eng-home-streak');
+    if (streakEl) {
+      streakEl.textContent = state.streakDays > 0 ? `🔥 ${state.streakDays}d streak` : 'Start streak';
+      streakEl.classList.toggle('is-empty', state.streakDays === 0);
     }
   }
 
   function setBar(fillId, valId, pct, label) {
     const fill = el(fillId);
     const val  = el(valId);
-    if (fill) fill.style.width = pct + '%';
+    if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
     if (val)  val.textContent  = label;
   }
 
+  function setNextActionTone(tone) {
+    const box = el('eng-next-action');
+    if (!box) return;
+    box.classList.remove('is-blue', 'is-green', 'is-red');
+    box.classList.add(`is-${tone || 'blue'}`);
+  }
+
   /* ─── Smart next action ───────────────────────────────────────── */
-  function updateNextAction(waterMl, totalCal, goalCal, goalWater, steps, goalSteps, workout) {
+  function updateNextAction(state) {
     const msgEl = el('eng-next-msg');
-    if (!msgEl) return;
+    const subEl = el('eng-next-sub');
+    const ctxEl = el('eng-next-context');
+    if (!msgEl || !subEl) return 'water';
 
-    const h = new Date().getHours();
-    let msg = '';
+    const context = state.timeContext;
+    let title = 'Keep momentum going';
+    let sub = 'Log your next habit now';
+    let tone = 'blue';
+    let action = 'water';
 
-    if (waterMl < 500) {
-      msg = 'Drink 250ml water — you haven\'t hydrated yet today';
-    } else if (totalCal === 0) {
-      msg = h < 11 ? 'Log your breakfast to start tracking' : 'No meals yet — log your first meal';
-    } else if (h >= 17 && h < 21 && !workout) {
-      msg = 'It\'s workout time — start your session now 🏋️';
-    } else if (!workout && h >= 12) {
-      msg = 'Workout still pending — log your session today 💪';
-    } else if (waterMl < goalWater * 0.5) {
-      const cups = Math.ceil((goalWater - waterMl) / 250);
-      msg = `${cups} more cups of water to hit your goal`;
-    } else if (totalCal < goalCal * 0.6 && h >= 14) {
-      msg = `Need ${goalCal - totalCal} more kcal today`;
-    } else if (workout && waterMl >= goalWater * 0.8) {
-      msg = 'Great work today — all key habits done! 🎉';
-    } else {
-      msg = 'Keep logging — small habits compound';
+    if (context === 'morning') {
+      if (state.waterMl < 500) {
+        title = state.waterMl === 0 ? 'You have not hydrated yet' : 'Hydration first this morning';
+        sub = 'Tap + Drink Water (+250 ml)';
+        tone = 'blue';
+        action = 'water';
+      } else if (state.totalCal === 0) {
+        title = 'Breakfast is your next win';
+        sub = state.lastMeal ? `Tap + Log Meal to repeat ${truncate(state.lastMeal.name, 18)}` : 'Tap + Log Meal to add breakfast fast';
+        tone = 'blue';
+        action = 'meal';
+      }
     }
 
-    msgEl.textContent = msg;
+    if (context === 'afternoon') {
+      if (state.stepDeficit > 2500) {
+        title = 'You are behind on steps';
+        sub = `Need ${state.stepDeficit.toLocaleString()} more steps today`; 
+        tone = 'red';
+        action = 'meal';
+      } else if (state.totalCal === 0) {
+        title = 'No meals logged this afternoon';
+        sub = 'Tap + Log Meal now';
+        tone = 'red';
+        action = 'meal';
+      }
+    }
+
+    if (context === 'gym' && !state.workoutDone) {
+      title = state.sessionActive ? 'Workout session is active' : 'Workout window is open';
+      sub = state.sessionActive ? 'Continue your current session' : 'Tap + Start Workout now';
+      tone = 'green';
+      action = 'workout';
+    }
+
+    if (context === 'evening') {
+      if (state.proteinDeficit > 0) {
+        title = `You need ${state.proteinDeficit}g protein to hit goal`;
+        sub = 'Tap + Log Meal and use a quick repeat';
+        tone = 'red';
+        action = 'meal';
+      } else if (!state.workoutDone) {
+        title = 'Workout still pending tonight';
+        sub = 'Tap + Start Workout to close the day strong';
+        tone = 'red';
+        action = 'workout';
+      } else if (state.waterPct < 100) {
+        title = 'One final hydration push';
+        sub = `${Math.max(0, state.goalWater - state.waterMl)} ml left for your target`;
+        tone = 'blue';
+        action = 'water';
+      } else {
+        title = 'Great closeout today';
+        sub = 'All key habits are on track';
+        tone = 'green';
+        action = 'water';
+      }
+    }
+
+    if (ctxEl) ctxEl.textContent = getContextLabel(context);
+    msgEl.textContent = title;
+    subEl.textContent = sub;
+    setNextActionTone(tone);
+    return action;
   }
 
   /* ─── Trigger app.js re-render ───────────────────────────────── */
@@ -505,6 +827,7 @@
   function init() {
     wireHomeButtons();
     hookDataChanges();
+    render();
 
     let attempts = 80;
     const poll = setInterval(() => {

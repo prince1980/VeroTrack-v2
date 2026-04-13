@@ -42,28 +42,16 @@
       </p>
 
       <!-- ── PRIMARY ACTION BAR ── -->
-      <div class="eng-action-bar" role="group" aria-label="Primary actions">
-        <button type="button" class="eng-action-btn eng-action-btn--water" id="eng-water-btn" aria-label="Log 250ml water">
-          <span class="eng-action-btn__icon">💧</span>
-          <span class="eng-action-btn__label">Water</span>
-          <span class="eng-action-btn__sub">+250 ml</span>
-        </button>
-        <button type="button" class="eng-action-btn eng-action-btn--meal" id="eng-meal-btn" aria-label="Log a meal">
-          <span class="eng-action-btn__icon">🍽️</span>
-          <span class="eng-action-btn__label">Meal</span>
-          <span class="eng-action-btn__sub">Quick log</span>
-        </button>
-        <button type="button" class="eng-action-btn eng-action-btn--workout" id="eng-workout-btn" aria-label="Go to workout">
-          <span class="eng-action-btn__icon">🏋️</span>
-          <span class="eng-action-btn__label">Workout</span>
-          <span class="eng-action-btn__sub" id="eng-workout-sub">Start</span>
-        </button>
-      </div>
+      <div class="eng-action-bar" id="eng-action-hub" role="group" aria-label="Primary actions"></div>
 
       <!-- ── SMART NEXT ACTION ── -->
-      <div class="eng-next-action" id="eng-next-action" aria-live="polite">
+      <div class="eng-next-action is-blue" id="eng-next-action" aria-live="polite">
         <span class="eng-next-dot"></span>
-        <p class="eng-next-msg" id="eng-next-msg">Drink 250ml water to start your day 💧</p>
+        <div class="eng-next-copy">
+          <p class="eng-next-kicker" id="eng-next-context">Right now</p>
+          <p class="eng-next-msg" id="eng-next-msg">Start your first habit in one tap</p>
+          <p class="eng-next-sub" id="eng-next-sub">Tap + Drink Water to begin</p>
+        </div>
       </div>
 
       <!-- ── QUICK LOG STRIP ── -->
@@ -90,21 +78,21 @@
           <div class="eng-progress-track">
             <div class="eng-progress-fill eng-progress-fill--water" id="eng-prog-hydrate"></div>
           </div>
-          <span class="eng-progress-row__val" id="eng-prog-hydrate-val">0%</span>
+          <span class="eng-progress-row__val" id="eng-prog-hydrate-val">Start first drink</span>
         </div>
         <div class="eng-progress-row">
           <span class="eng-progress-row__label">Calories</span>
           <div class="eng-progress-track">
             <div class="eng-progress-fill eng-progress-fill--cal" id="eng-prog-cal"></div>
           </div>
-          <span class="eng-progress-row__val" id="eng-prog-cal-val">0%</span>
+          <span class="eng-progress-row__val" id="eng-prog-cal-val">Log first meal</span>
         </div>
         <div class="eng-progress-row">
           <span class="eng-progress-row__label">Workout</span>
           <div class="eng-progress-track">
             <div class="eng-progress-fill eng-progress-fill--workout" id="eng-prog-workout"></div>
           </div>
-          <span class="eng-progress-row__val" id="eng-prog-workout-val">Not started</span>
+          <span class="eng-progress-row__val" id="eng-prog-workout-val">Start session</span>
         </div>
       </div>
 
@@ -689,20 +677,20 @@
 
   <!-- ── SCRIPTS ── -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/auth.js?v=2026-04-13-v6"></script>
-  <script src="js/supabase-config.js?v=2026-04-13-v6"></script>
-  <script src="js/storage.js?v=2026-04-13-v6"></script>
-  <script src="js/burn.js?v=2026-04-13-v6"></script>
-  <script src="js/gamify.js?v=2026-04-13-v6"></script>
-  <script src="js/tips.js?v=2026-04-13-v6"></script>
-  <script src="js/gemini.js?v=2026-04-13-v6"></script>
-  <script src="js/login-ui.js?v=2026-04-13-v6"></script>
-  <script src="js/app.js?v=2026-04-13-v6"></script>
-  <script src="js/premium-ui.js?v=2026-04-13-v6"></script>
+  <script src="js/auth.js?v=2026-04-13-v7"></script>
+  <script src="js/supabase-config.js?v=2026-04-13-v7"></script>
+  <script src="js/storage.js?v=2026-04-13-v7"></script>
+  <script src="js/burn.js?v=2026-04-13-v7"></script>
+  <script src="js/gamify.js?v=2026-04-13-v7"></script>
+  <script src="js/tips.js?v=2026-04-13-v7"></script>
+  <script src="js/gemini.js?v=2026-04-13-v7"></script>
+  <script src="js/login-ui.js?v=2026-04-13-v7"></script>
+  <script src="js/app.js?v=2026-04-13-v7"></script>
+  <script src="js/premium-ui.js?v=2026-04-13-v7"></script>
   <!-- v5 Behavior Engine Modules -->
-  <script src="js/quick-log.js?v=2026-04-13-v6"></script>
-  <script src="js/session.js?v=2026-04-13-v6"></script>
-  <script src="js/insights.js?v=2026-04-13-v6"></script>
+  <script src="js/quick-log.js?v=2026-04-13-v7"></script>
+  <script src="js/session.js?v=2026-04-13-v7"></script>
+  <script src="js/insights.js?v=2026-04-13-v7"></script>
 
   <script>
     // Initialize authentication and app
@@ -712,7 +700,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-13-v6';
+        var swVersion = '2026-04-13-v7';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

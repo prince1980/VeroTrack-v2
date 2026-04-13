@@ -36,13 +36,16 @@
   }
 
   function startSession() {
+    if (_session && _session.active) return false;
     _session = { startedAt: Date.now(), active: true };
     saveSession();
     renderSessionUI();
     startTimer();
+    return true;
   }
 
   function endSession() {
+    if (!_session) return false;
     _session = null;
     saveSession();
     stopTimer();
@@ -53,6 +56,7 @@
       const toggleBtn = el('btn-workout-toggle');
       if (toggleBtn && !isWorkoutDone()) toggleBtn.click();
     }
+    return true;
   }
 
   function isWorkoutDone() {
@@ -70,6 +74,15 @@
   function todayKey() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function startFromAction() {
+    if (isWorkoutDone()) return false;
+    return startSession();
+  }
+
+  function isActive() {
+    return !!(_session && _session.active);
   }
 
   /* ─── Timer ──────────────────────────────────────────────────── */
@@ -245,5 +258,11 @@
   } else {
     setTimeout(init, 0);
   }
+
+  window.VTSession = {
+    startFromAction,
+    isActive,
+    endFromAction: endSession,
+  };
 
 })();

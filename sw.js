@@ -1,4 +1,4 @@
-const CACHE_NAME = 'verotrack-v2-cache-2';
+const CACHE_NAME = 'verotrack-v2-cache-3';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -7,6 +7,9 @@ const ASSETS_TO_CACHE = [
   './css/engine.css',
   './css/premium.css',
   './js/app.js',
+  './js/quick-log.js',
+  './js/session.js',
+  './js/insights.js',
   './js/storage.js',
   './js/auth.js',
   './js/gemini.js'
