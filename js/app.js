@@ -24,6 +24,8 @@
     inFlight: false,
     lastAttemptAt: 0,
   };
+  const OVERLAY_IDS = ['modal-overlay', 'settings-overlay', 'eng-exercise-sheet'];
+  let lastOverlayTrigger = null;
 
   function normalizeEmail(value) {
     return String(value || '').trim().toLowerCase();
@@ -41,17 +43,110 @@
     return !!(appEmail && cloudEmail && appEmail !== cloudEmail);
   }
 
+  async function getCurrentUserEmailSafe() {
+    if (!Auth || typeof Auth.getCurrentUser !== 'function') return null;
+    try {
+      return await Auth.getCurrentUser();
+    } catch {
+      return null;
+    }
+  }
+
+  function markOverlayState(node, visible) {
+    if (!node) return;
+    node.hidden = !visible;
+    node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
+  function hasVisibleOverlay() {
+    return OVERLAY_IDS.some((id) => {
+      const node = document.getElementById(id);
+      return !!(node && !node.hidden);
+    });
+  }
+
+  function syncBodyScrollLock() {
+    document.body.style.overflow = hasVisibleOverlay() ? 'hidden' : '';
+  }
+
+  function rememberOverlayTrigger() {
+    const active = document.activeElement;
+    lastOverlayTrigger = active instanceof HTMLElement ? active : null;
+  }
+
+  function restoreOverlayTriggerFocus() {
+    if (lastOverlayTrigger && document.contains(lastOverlayTrigger)) {
+      try {
+        lastOverlayTrigger.focus({ preventScroll: true });
+      } catch {
+        // no-op
+      }
+    }
+    lastOverlayTrigger = null;
+  }
+
+  function closeExerciseSheetSafe() {
+    const sheet = document.getElementById('eng-exercise-sheet');
+    if (!sheet || sheet.hidden) return false;
+
+    if (window.VTSession && typeof window.VTSession.closeExerciseSheet === 'function') {
+      return window.VTSession.closeExerciseSheet();
+    }
+
+    sheet.classList.remove('is-open');
+    markOverlayState(sheet, false);
+    syncBodyScrollLock();
+    return true;
+  }
+
+  function closeTopOverlay() {
+    const sheet = document.getElementById('eng-exercise-sheet');
+    if (sheet && !sheet.hidden) {
+      return closeExerciseSheetSafe();
+    }
+    if (els.settingsOverlay && !els.settingsOverlay.hidden) {
+      closeSettings();
+      return true;
+    }
+    if (els.modalOverlay && !els.modalOverlay.hidden) {
+      closeModal();
+      return true;
+    }
+    return false;
+  }
+
+  function resetTransientOverlays() {
+    OVERLAY_IDS.forEach((id) => {
+      const node = document.getElementById(id);
+      if (!node) return;
+      markOverlayState(node, false);
+      if (id === 'eng-exercise-sheet') {
+        node.classList.remove('is-open');
+      }
+    });
+    syncBodyScrollLock();
+  }
+
+  window.addEventListener('vt:sheet-visibility-change', syncBodyScrollLock);
+
   async function initializeApp() {
+    if (!S || typeof S.load !== 'function') {
+      console.error('Storage is unavailable.');
+      return;
+    }
+
     try {
       // Check authentication first
-      const isAuthenticated = await Auth.isAuthenticated();
+      const isAuthenticated = Auth && typeof Auth.isAuthenticated === 'function'
+        ? await Auth.isAuthenticated()
+        : true;
       if (!isAuthenticated) {
         // Auth UI will handle showing the login screen
         return;
       }
 
       // Get current user email
-      const email = await Auth.getCurrentUser();
+      const email = await getCurrentUserEmailSafe();
 
       // Load user data
       data = await S.load(email);
@@ -65,7 +160,7 @@
       startApp();
     } catch (err) {
       console.error('Failed to load user data:', err);
-      const email = await Auth.getCurrentUser();
+      const email = await getCurrentUserEmailSafe();
       data = await S.load(email);
       cacheSharedData(data);
       if (email && S.syncWithCloud) {
@@ -80,6 +175,7 @@
   function startApp() {
     if (!isInitialized || startApp._started) return;
     startApp._started = true;
+    resetTransientOverlays();
 
     cacheSharedData(data);
 
@@ -110,7 +206,7 @@
         };
         updateSyncUI();
 
-        const email = await Auth.getCurrentUser();
+        const email = await getCurrentUserEmailSafe();
         if (!email) return;
 
         if (hasCloudIdentityMismatch(session, email)) {
@@ -1031,7 +1127,9 @@
       </div>
     `;
 
-    els.modalOverlay.hidden = false;
+    rememberOverlayTrigger();
+    markOverlayState(els.modalOverlay, true);
+    syncBodyScrollLock();
   }
 
   function escapeHtml(str) {
@@ -1041,7 +1139,10 @@
   }
 
   function closeModal() {
-    els.modalOverlay.hidden = true;
+    if (!els.modalOverlay || els.modalOverlay.hidden) return;
+    markOverlayState(els.modalOverlay, false);
+    syncBodyScrollLock();
+    restoreOverlayTriggerFocus();
   }
 
   function openSettings() {
@@ -1064,11 +1165,16 @@
     if (els.setGeminiModel) els.setGeminiModel.value = aiSaved.model || aiSettings.model || defaultModel;
     refreshAIStatusFromSettings();
     updateBmrReadout();
-    els.settingsOverlay.hidden = false;
+    rememberOverlayTrigger();
+    markOverlayState(els.settingsOverlay, true);
+    syncBodyScrollLock();
   }
 
   function closeSettings() {
-    els.settingsOverlay.hidden = true;
+    if (!els.settingsOverlay || els.settingsOverlay.hidden) return;
+    markOverlayState(els.settingsOverlay, false);
+    syncBodyScrollLock();
+    restoreOverlayTriggerFocus();
   }
 
   function updateBmrReadout() {
@@ -1643,6 +1749,13 @@
     }
   });
 
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (closeTopOverlay()) {
+      e.preventDefault();
+    }
+  });
+
   ['set-weight-kg', 'set-height', 'set-age', 'set-sex'].forEach((id) => {
     document.getElementById(id).addEventListener('input', updateBmrReadout);
     document.getElementById(id).addEventListener('change', updateBmrReadout);
@@ -1831,6 +1944,7 @@
     const indicator = els.syncStatus.querySelector('.status-indicator');
     const text = els.syncStatus.querySelector('.status-text');
     const pendingResume = !!(Auth && typeof Auth.hasPendingCloudAuth === 'function' && Auth.hasPendingCloudAuth());
+    const appUserEmail = await getCurrentUserEmailSafe();
 
     if (!sb) {
       indicator.className = 'status-indicator error';
@@ -2098,6 +2212,10 @@
 
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      closeModal();
+      closeSettings();
+      closeExerciseSheetSafe();
+
       const tab = btn.getAttribute('data-tab');
       activeTab = tab;
       document.querySelectorAll('.tab-btn').forEach((b) => {

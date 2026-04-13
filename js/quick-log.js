@@ -18,6 +18,7 @@
 
 (function () {
   'use strict';
+  const LOG_MODE_KEY = 'vt_log_mode_v1';
 
   /* ─── Utilities ─────────────────────────────────────────────── */
   const el = id => document.getElementById(id);
@@ -152,8 +153,25 @@
   /* ─── Log mode toggle ─────────────────────────────────────────── */
   let _logMode = 'quick';
 
+  function readSavedLogMode() {
+    try {
+      const saved = localStorage.getItem(LOG_MODE_KEY);
+      return saved === 'detailed' ? 'detailed' : 'quick';
+    } catch (e) {
+      return 'quick';
+    }
+  }
+
+  function saveLogMode(mode) {
+    try {
+      localStorage.setItem(LOG_MODE_KEY, mode);
+    } catch (e) {
+      // no-op
+    }
+  }
+
   function setLogMode(mode) {
-    _logMode = mode;
+    _logMode = mode === 'detailed' ? 'detailed' : 'quick';
     const quickPanel  = el('log-mode-quick');
     const detailPanel = el('log-mode-detailed');
     const qBtn = el('eng-mode-quick');
@@ -161,7 +179,7 @@
 
     if (!quickPanel || !detailPanel) return;
 
-    if (mode === 'quick') {
+    if (_logMode === 'quick') {
       quickPanel.hidden  = false;
       detailPanel.hidden = true;
       if (qBtn) qBtn.classList.add('is-active');
@@ -181,6 +199,7 @@
         if (nf) { nf.scrollIntoView({ behavior: 'smooth', block: 'center' }); nf.focus(); }
       }, 150);
     }
+    saveLogMode(_logMode);
     renderRecentMeals();
   }
 
@@ -451,6 +470,16 @@
         tone: 'blue',
       },
       {
+        id: 'eng-steps-btn',
+        action: 'steps',
+        icon: '👟',
+        label: '+ Add Steps',
+        sub: state.stepDeficit > 0
+          ? `+2,000 · ${state.stepDeficit.toLocaleString()} left`
+          : `At goal · ${state.steps.toLocaleString()} today`,
+        tone: 'amber',
+      },
+      {
         id: 'eng-workout-btn',
         action: 'workout',
         icon: state.workoutDone ? '✅' : (state.sessionActive ? '⏱' : '🏋️'),
@@ -461,8 +490,48 @@
       },
     ].map(card => ({ ...card, priority: priorityAction === card.action }));
 
+    if (state.workoutDone && state.stepDeficit <= 0) {
+      const stepIdx = cards.findIndex((card) => card.action === 'steps');
+      if (stepIdx >= 0) cards.splice(stepIdx, 1);
+    }
+
     hub.innerHTML = '';
     cards.forEach(card => hub.appendChild(createActionCard(card)));
+  }
+
+  function renderPrimaryCta(state, priorityAction) {
+    const btn = el('vt-primary-cta');
+    const lbl = el('vt-primary-cta-label');
+    const sub = el('vt-primary-cta-sub');
+    if (!btn || !lbl || !sub) return;
+
+    const action = priorityAction || 'meal';
+    btn.setAttribute('data-primary-action', action);
+    btn.classList.remove('is-water', 'is-meal', 'is-workout', 'is-steps');
+    btn.classList.add(`is-${action}`);
+
+    if (action === 'water') {
+      lbl.textContent = 'Drink Water';
+      sub.textContent = '+250 ml quick hydration';
+      return;
+    }
+
+    if (action === 'workout') {
+      lbl.textContent = state && state.sessionActive ? 'Continue Workout' : 'Start Workout';
+      sub.textContent = state && state.sessionActive ? 'Session in progress' : 'Strength session now';
+      return;
+    }
+
+    if (action === 'steps') {
+      lbl.textContent = 'Add Steps';
+      sub.textContent = state && state.stepDeficit > 0
+        ? `Quick +2,000 · ${state.stepDeficit.toLocaleString()} left`
+        : 'Maintain movement momentum';
+      return;
+    }
+
+    lbl.textContent = 'Log Meal';
+    sub.textContent = state && state.lastMeal ? `Repeat ${truncate(state.lastMeal.name, 20)}` : 'Quick nutrition entry';
   }
 
   /* ─── HOME — Quick Log Strip ─────────────────────────────────── */
@@ -577,8 +646,8 @@
       return;
     }
     switchTab('log');
-    setTimeout(() => setLogMode('quick'), 100);
-    showToast('Add your first meal to unlock 1-tap repeats', 2100);
+    setTimeout(() => setLogMode('detailed'), 100);
+    showToast('Describe your meal once, then repeats become one-tap', 2200);
   }
 
   function quickWorkoutAction() {
@@ -620,9 +689,34 @@
           await quickMealAction();
           return;
         }
+        if (action === 'steps') {
+          await quickAddSteps(2000);
+          return;
+        }
         if (action === 'workout') {
           quickWorkoutAction();
         }
+      });
+    }
+
+    const primaryCta = el('vt-primary-cta');
+    if (primaryCta && !primaryCta._wired) {
+      primaryCta._wired = true;
+      primaryCta.addEventListener('click', async () => {
+        const action = primaryCta.getAttribute('data-primary-action') || 'meal';
+        if (action === 'water') {
+          await quickAddWater(250);
+          return;
+        }
+        if (action === 'workout') {
+          quickWorkoutAction();
+          return;
+        }
+        if (action === 'steps') {
+          await quickAddSteps(2000);
+          return;
+        }
+        await quickMealAction();
       });
     }
 
@@ -708,10 +802,13 @@
 
     const priorityAction = updateNextAction(state);
     renderActionHub(state, priorityAction);
+    renderPrimaryCta(state, priorityAction);
 
     const streakEl = el('eng-home-streak');
     if (streakEl) {
-      streakEl.textContent = state.streakDays > 0 ? `🔥 ${state.streakDays}d streak` : 'Start streak';
+      streakEl.textContent = state.streakDays > 0
+        ? `🔥 ${state.streakDays} day streak — don't break it`
+        : '🔥 Start your streak today';
       streakEl.classList.toggle('is-empty', state.streakDays === 0);
     }
   }
@@ -760,9 +857,9 @@
     if (context === 'afternoon') {
       if (state.stepDeficit > 2500) {
         title = 'You are behind on steps';
-        sub = `Need ${state.stepDeficit.toLocaleString()} more steps today`; 
+        sub = 'Tap + Add Steps for a quick +2,000 boost';
         tone = 'red';
-        action = 'meal';
+        action = 'steps';
       } else if (state.totalCal === 0) {
         title = 'No meals logged this afternoon';
         sub = 'Tap + Log Meal now';
@@ -784,6 +881,11 @@
         sub = 'Tap + Log Meal and use a quick repeat';
         tone = 'blue';
         action = 'meal';
+      } else if (state.stepDeficit > 2500) {
+        title = `${state.stepDeficit.toLocaleString()} steps left for target`;
+        sub = 'Tap + Add Steps to close your movement ring';
+        tone = 'blue';
+        action = 'steps';
       } else if (!state.workoutDone) {
         title = 'Workout still pending tonight';
         sub = 'Tap + Start Workout to close the day strong';
@@ -844,6 +946,7 @@
   function init() {
     wireHomeButtons();
     hookDataChanges();
+    setLogMode(readSavedLogMode());
     render();
 
     let attempts = 80;

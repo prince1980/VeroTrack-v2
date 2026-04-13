@@ -26,11 +26,13 @@
          ═══════════════════════════════════════════════ -->
     <section id="tab-home" class="tab-panel active" aria-label="Home">
 
-      <!-- Compact Header -->
-      <div class="eng-header">
-        <span class="eng-header__brand">VeroTrack</span>
+      <!-- Premium Header -->
+      <div class="eng-header neo-home-header">
+        <div class="neo-greeting">
+          <p class="neo-greeting__title" id="eng-greeting-title">Good morning, Athlete 👋</p>
+          <p class="neo-greeting__sub" id="eng-home-streak">🔥 0 day streak — don't break it</p>
+        </div>
         <div class="eng-header__right">
-          <span class="eng-streak" id="eng-home-streak">🔥 0d</span>
           <button type="button" class="eng-settings-btn" id="btn-open-settings" aria-label="Settings">⚙</button>
         </div>
       </div>
@@ -40,6 +42,121 @@
         Add weight &amp; height for precise burn estimates.
         <button type="button" class="banner__link" id="btn-banner-settings">Settings</button>
       </p>
+
+      <!-- Hero Daily Progress -->
+      <article class="neo-hero-card" aria-label="Daily progress">
+        <p class="neo-hero-card__kicker">Daily Progress</p>
+        <h2 class="neo-hero-card__value" id="vt-daily-pct">0%</h2>
+        <p class="neo-hero-card__sub" id="vt-daily-label">You're slightly behind — 2 actions left</p>
+        <div class="neo-hero-card__track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="neo-hero-card__fill" id="vt-daily-bar"></div>
+        </div>
+        <button type="button" class="neo-primary-cta is-meal" id="vt-primary-cta" data-primary-action="meal" aria-label="Primary action">
+          <span class="neo-primary-cta__label" id="vt-primary-cta-label">Log Meal</span>
+          <span class="neo-primary-cta__sub" id="vt-primary-cta-sub">Quick nutrition entry</span>
+        </button>
+      </article>
+
+      <!-- Habit Rings -->
+      <section class="neo-rings" aria-label="Habit rings">
+        <article class="neo-ring neo-ring--hydrate">
+          <div class="neo-ring__frame">
+            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
+              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
+              <circle class="neo-ring__fill" id="vt-ring-hydrate" cx="32" cy="32" r="26"></circle>
+            </svg>
+            <span class="neo-ring__icon">💧</span>
+          </div>
+          <p class="neo-ring__label">Hydrate</p>
+          <p class="neo-ring__value" id="vt-ring-hydrate-pct">0%</p>
+        </article>
+
+        <article class="neo-ring neo-ring--move">
+          <div class="neo-ring__frame">
+            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
+              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
+              <circle class="neo-ring__fill" id="vt-ring-move" cx="32" cy="32" r="26"></circle>
+            </svg>
+            <span class="neo-ring__icon">👟</span>
+          </div>
+          <p class="neo-ring__label">Move</p>
+          <p class="neo-ring__value" id="vt-ring-move-pct">0%</p>
+        </article>
+
+        <article class="neo-ring neo-ring--eat">
+          <div class="neo-ring__frame">
+            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
+              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
+              <circle class="neo-ring__fill" id="vt-ring-eat" cx="32" cy="32" r="26"></circle>
+            </svg>
+            <span class="neo-ring__icon">🍽️</span>
+          </div>
+          <p class="neo-ring__label">Eat</p>
+          <p class="neo-ring__value" id="vt-ring-eat-pct">0%</p>
+        </article>
+
+        <article class="neo-ring neo-ring--train">
+          <div class="neo-ring__frame">
+            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
+              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
+              <circle class="neo-ring__fill" id="vt-ring-train" cx="32" cy="32" r="26"></circle>
+            </svg>
+            <span class="neo-ring__icon">🏋️</span>
+          </div>
+          <p class="neo-ring__label">Train</p>
+          <p class="neo-ring__value" id="vt-ring-train-pct">0%</p>
+        </article>
+      </section>
+
+      <!-- Stat Cards -->
+      <section class="neo-stat-grid" aria-label="Daily stat cards">
+        <article class="neo-stat-card neo-stat-card--steps">
+          <span class="neo-stat-card__badge">👟</span>
+          <p class="neo-stat-card__label">Steps</p>
+          <p class="neo-stat-card__value" id="vt-stat-steps">0</p>
+          <p class="neo-stat-card__sub" id="vt-stat-steps-sub">0% of goal</p>
+          <div class="neo-stat-card__bar"><span id="vt-stat-steps-bar"></span></div>
+        </article>
+
+        <article class="neo-stat-card neo-stat-card--calories">
+          <span class="neo-stat-card__badge">🔥</span>
+          <p class="neo-stat-card__label">Calories</p>
+          <p class="neo-stat-card__value" id="vt-stat-cals">0</p>
+          <p class="neo-stat-card__sub" id="vt-stat-cals-sub">0% of target</p>
+          <div class="neo-stat-card__bar"><span id="vt-stat-cals-bar"></span></div>
+        </article>
+
+        <article class="neo-stat-card neo-stat-card--protein">
+          <span class="neo-stat-card__badge">🥚</span>
+          <p class="neo-stat-card__label">Protein</p>
+          <p class="neo-stat-card__value" id="vt-stat-protein">0g</p>
+          <p class="neo-stat-card__sub" id="vt-stat-protein-sub">0% of goal</p>
+          <div class="neo-stat-card__bar"><span id="vt-stat-protein-bar"></span></div>
+        </article>
+
+        <article class="neo-stat-card neo-stat-card--burned">
+          <span class="neo-stat-card__badge">⚡</span>
+          <p class="neo-stat-card__label">Burned</p>
+          <p class="neo-stat-card__value" id="vt-stat-burned">0 kcal</p>
+          <p class="neo-stat-card__sub" id="vt-stat-burned-sub">Active burn today</p>
+          <div class="neo-stat-card__bar"><span id="vt-stat-burned-bar"></span></div>
+        </article>
+      </section>
+
+      <!-- Weekly + Streak -->
+      <section class="neo-home-analytics">
+        <article class="neo-week-card">
+          <p class="neo-card-title">Weekly Progress</p>
+          <div class="neo-week-bars" id="vt-home-week-bars" aria-label="Weekly progress bars"></div>
+          <p class="neo-week-note" id="vt-home-week-summary">7-day consistency overview</p>
+        </article>
+
+        <article class="neo-streak-card">
+          <p class="neo-card-title">Streak</p>
+          <h3 id="vt-home-streak-value">🔥 0 day streak</h3>
+          <p id="vt-home-streak-note">Start today and build momentum.</p>
+        </article>
+      </section>
 
       <!-- ── PRIMARY ACTION BAR ── -->
       <div class="eng-action-bar" id="eng-action-hub" role="group" aria-label="Primary actions"></div>
@@ -146,26 +263,6 @@
       <span id="protein-focus-fill" hidden></span>
       <span id="protein-focus-track" hidden></span>
       <span id="protein-focus-note" hidden></span>
-      <!-- VT rings (SVG circles, hidden) -->
-      <svg hidden aria-hidden="true">
-        <circle id="vt-ring-hydrate" />
-        <circle id="vt-ring-move" />
-        <circle id="vt-ring-eat" />
-        <circle id="vt-ring-train" />
-      </svg>
-      <span id="vt-ring-hydrate-pct" hidden></span>
-      <span id="vt-ring-move-pct" hidden></span>
-      <span id="vt-ring-eat-pct" hidden></span>
-      <span id="vt-ring-train-pct" hidden></span>
-      <!-- VT daily progress -->
-      <span id="vt-daily-pct" hidden></span>
-      <span id="vt-daily-bar" hidden></span>
-      <span id="vt-daily-label" hidden></span>
-      <!-- VT stat cards -->
-      <span id="vt-stat-steps" hidden></span>
-      <span id="vt-stat-steps-sub" hidden></span>
-      <span id="vt-stat-cals" hidden></span>
-      <span id="vt-stat-cals-sub" hidden></span>
       <button type="button" id="btn-toggle-breakdown" hidden aria-expanded="false"></button>
       <div id="panel-breakdown" hidden></div>
       <span id="tip-text" hidden></span>
@@ -363,6 +460,30 @@
         <span id="eng-workout-date"></span>
       </div>
 
+      <!-- Train Stats Grid -->
+      <section class="neo-train-metrics" aria-label="Workout metrics">
+        <article class="neo-train-metric">
+          <span class="neo-train-metric__icon">🏋️</span>
+          <p class="neo-train-metric__label">Volume</p>
+          <p class="neo-train-metric__value" id="vt-train-volume">—</p>
+        </article>
+        <article class="neo-train-metric">
+          <span class="neo-train-metric__icon">⏱</span>
+          <p class="neo-train-metric__label">Time</p>
+          <p class="neo-train-metric__value" id="vt-train-time">—</p>
+        </article>
+        <article class="neo-train-metric">
+          <span class="neo-train-metric__icon">💪</span>
+          <p class="neo-train-metric__label">Avg Strength</p>
+          <p class="neo-train-metric__value" id="vt-train-strength">—</p>
+        </article>
+        <article class="neo-train-metric">
+          <span class="neo-train-metric__icon">🏆</span>
+          <p class="neo-train-metric__label">Records</p>
+          <p class="neo-train-metric__value" id="vt-train-records">—</p>
+        </article>
+      </section>
+
       <!-- Exercise Log -->
       <div class="eng-exercise-section">
         <div class="eng-exercise-section__head">
@@ -379,11 +500,6 @@
         <div class="vt-workout-grid" id="vt-workout-grid" aria-label="Workout history grid"></div>
       </article>
 
-      <!-- Hidden legacy IDs for train tab -->
-      <span id="vt-train-volume" hidden></span>
-      <span id="vt-train-time" hidden></span>
-      <span id="vt-train-strength" hidden></span>
-      <span id="vt-train-records" hidden></span>
     </section>
 
 
@@ -435,6 +551,26 @@
         <div class="week-chart" id="week-chart" aria-label="Weekly activity chart"></div>
         <p class="week-summary" id="week-summary"></p>
       </article>
+
+      <article class="eng-card">
+        <h2 class="eng-card__title">Monthly Trend</h2>
+        <div class="neo-month-trend" id="vt-month-trend" aria-label="Monthly trend line chart"></div>
+      </article>
+
+      <section class="neo-insight-grid" aria-label="Performance insights">
+        <article class="neo-insight-card">
+          <p class="neo-insight-card__label">Best Day</p>
+          <p class="neo-insight-card__value" id="vt-insight-best">—</p>
+        </article>
+        <article class="neo-insight-card">
+          <p class="neo-insight-card__label">Lowest Day</p>
+          <p class="neo-insight-card__value" id="vt-insight-worst">—</p>
+        </article>
+        <article class="neo-insight-card neo-insight-card--wide">
+          <p class="neo-insight-card__label">Average Progress</p>
+          <p class="neo-insight-card__value" id="vt-insight-avg">—</p>
+        </article>
+      </section>
 
       <!-- XP & Progress (moved from Home) -->
       <article class="eng-card eng-card--compact">
@@ -684,20 +820,20 @@
 
   <!-- ── SCRIPTS ── -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/auth.js?v=2026-04-13-v10"></script>
-  <script src="js/supabase-config.js?v=2026-04-13-v10"></script>
-  <script src="js/storage.js?v=2026-04-13-v10"></script>
-  <script src="js/burn.js?v=2026-04-13-v10"></script>
-  <script src="js/gamify.js?v=2026-04-13-v10"></script>
-  <script src="js/tips.js?v=2026-04-13-v10"></script>
-  <script src="js/gemini.js?v=2026-04-13-v10"></script>
-  <script src="js/login-ui.js?v=2026-04-13-v10"></script>
-  <script src="js/app.js?v=2026-04-13-v10"></script>
-  <script src="js/premium-ui.js?v=2026-04-13-v10"></script>
+  <script src="js/auth.js?v=2026-04-13-v11"></script>
+  <script src="js/supabase-config.js?v=2026-04-13-v11"></script>
+  <script src="js/storage.js?v=2026-04-13-v11"></script>
+  <script src="js/burn.js?v=2026-04-13-v11"></script>
+  <script src="js/gamify.js?v=2026-04-13-v11"></script>
+  <script src="js/tips.js?v=2026-04-13-v11"></script>
+  <script src="js/gemini.js?v=2026-04-13-v11"></script>
+  <script src="js/login-ui.js?v=2026-04-13-v11"></script>
+  <script src="js/app.js?v=2026-04-13-v11"></script>
+  <script src="js/premium-ui.js?v=2026-04-13-v11"></script>
   <!-- v5 Behavior Engine Modules -->
-  <script src="js/quick-log.js?v=2026-04-13-v10"></script>
-  <script src="js/session.js?v=2026-04-13-v10"></script>
-  <script src="js/insights.js?v=2026-04-13-v10"></script>
+  <script src="js/quick-log.js?v=2026-04-13-v11"></script>
+  <script src="js/session.js?v=2026-04-13-v11"></script>
+  <script src="js/insights.js?v=2026-04-13-v11"></script>
 
   <script>
     // Initialize authentication and app
@@ -707,7 +843,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-13-v10';
+        var swVersion = '2026-04-13-v11';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

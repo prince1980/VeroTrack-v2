@@ -15,11 +15,13 @@
   'use strict';
 
   const SESSION_KEY = 'vt_session_v1';
+  const SHEET_TRANSITION_MS = 220;
   const el = id => document.getElementById(id);
 
   /* ─── Session state ──────────────────────────────────────────── */
   let _timer = null;
   let _session = null;
+  let _closeExerciseSheet = null;
 
   function loadSession() {
     try {
@@ -74,6 +76,18 @@
   function todayKey() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function syncBodyScrollLock() {
+    const lock = ['eng-exercise-sheet', 'modal-overlay', 'settings-overlay'].some((id) => {
+      const node = el(id);
+      return !!(node && !node.hidden);
+    });
+    document.body.style.overflow = lock ? 'hidden' : '';
+  }
+
+  function emitSheetVisibilityChange() {
+    window.dispatchEvent(new CustomEvent('vt:sheet-visibility-change'));
   }
 
   function startFromAction() {
@@ -153,14 +167,15 @@
 
     // We add our listener FIRST (capture phase) so we can modify behavior
     // app.js adds its listener later in bubble phase — both will fire
-    heroBtn.addEventListener('click', () => {
+    heroBtn.addEventListener('click', (event) => {
       if (_session && _session.active) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
         endSession();
-      } else if (!_session) {
+      } else if (!_session && !isWorkoutDone()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
         startSession();
-        // Let app.js also handle its toggle logic — mark done if they tap once
-        // Actually we separate: start session ≠ mark done
-        // Mark done happens when they tap "End session" in the banner
       }
       // If workout is already done, let app.js handle the undo
     }, true); // capture phase
@@ -182,24 +197,73 @@
     const sheet    = el('eng-exercise-sheet');
     const closeBtn = el('eng-ex-sheet-close');
     const overlay  = sheet;
+    let hideTimer = null;
+    let focusTimer = null;
+    let triggerToRestore = null;
 
     if (!addBtn || !sheet) return;
 
-    // Open sheet
-    addBtn.addEventListener('click', () => {
-      sheet.hidden = false;
-      document.body.style.overflow = 'hidden';
-      setTimeout(() => sheet.classList.add('is-open'), 10);
-      const nameField = el('ex-name');
-      if (nameField) setTimeout(() => nameField.focus(), 300);
-    });
+    sheet.setAttribute('aria-hidden', sheet.hidden ? 'true' : 'false');
 
-    // Close sheet
-    function closeSheet() {
-      sheet.classList.remove('is-open');
-      document.body.style.overflow = '';
-      setTimeout(() => { sheet.hidden = true; }, 300);
+    function clearSheetTimers() {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      if (focusTimer) {
+        clearTimeout(focusTimer);
+        focusTimer = null;
+      }
     }
+
+    function openSheet() {
+      clearSheetTimers();
+      triggerToRestore = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      sheet.hidden = false;
+      sheet.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(() => {
+        sheet.classList.add('is-open');
+      });
+      syncBodyScrollLock();
+      emitSheetVisibilityChange();
+
+      const nameField = el('ex-name');
+      if (nameField) {
+        focusTimer = setTimeout(() => {
+          nameField.focus();
+        }, 180);
+      }
+    }
+
+    function closeSheet() {
+      if (sheet.hidden && !sheet.classList.contains('is-open')) return false;
+      clearSheetTimers();
+      sheet.classList.remove('is-open');
+      sheet.setAttribute('aria-hidden', 'true');
+      syncBodyScrollLock();
+      emitSheetVisibilityChange();
+
+      hideTimer = setTimeout(() => {
+        sheet.hidden = true;
+        syncBodyScrollLock();
+        emitSheetVisibilityChange();
+        if (triggerToRestore && document.contains(triggerToRestore)) {
+          try {
+            triggerToRestore.focus({ preventScroll: true });
+          } catch(e) {
+            // no-op
+          }
+        }
+        triggerToRestore = null;
+      }, SHEET_TRANSITION_MS);
+
+      return true;
+    }
+
+    _closeExerciseSheet = closeSheet;
+
+    // Open sheet
+    addBtn.addEventListener('click', openSheet);
 
     if (closeBtn) closeBtn.addEventListener('click', closeSheet);
 
@@ -208,13 +272,20 @@
       if (e.target === overlay) closeSheet();
     });
 
+    window.addEventListener('vt:close-exercise-sheet', closeSheet);
+
     // Close when form submits (app.js handles the actual submit)
     const form = el('form-exercise');
     if (form) {
       form.addEventListener('submit', () => {
-        setTimeout(closeSheet, 100);
+        requestAnimationFrame(closeSheet);
       });
     }
+  }
+
+  function closeExerciseSheet() {
+    if (typeof _closeExerciseSheet !== 'function') return false;
+    return _closeExerciseSheet();
   }
 
   /* ─── Hook data changes (workout status) ─────────────────────── */
@@ -251,6 +322,7 @@
       startTimer();
     }
     renderSessionUI();
+    syncBodyScrollLock();
   }
 
   if (document.readyState === 'loading') {
@@ -263,6 +335,7 @@
     startFromAction,
     isActive,
     endFromAction: endSession,
+    closeExerciseSheet,
   };
 
 })();

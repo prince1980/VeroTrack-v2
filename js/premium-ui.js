@@ -45,6 +45,53 @@
     return formatDateKey(new Date());
   }
 
+  function greetingLabel() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  function workoutStreakDays(data) {
+    if (!data || !data.days) return 0;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    let streak = 0;
+    for (let i = 0; i < 366; i += 1) {
+      const key = formatDateKey(d);
+      const day = data.days[key];
+      if (day && day.workoutDone) {
+        streak += 1;
+        d.setDate(d.getDate() - 1);
+        continue;
+      }
+      break;
+    }
+    return streak;
+  }
+
+  function clampPct(val) {
+    return clamp(Math.round(val), 0, 100);
+  }
+
+  function dayProgressScore(day, goals) {
+    if (!day || !goals) return 0;
+    const water = pct(day.waterMl || 0, goals.waterGoalMl || 2500);
+    const steps = pct(day.steps || 0, goals.stepGoal || 10000);
+    const cals = pct(
+      (day.food || []).reduce((sum, item) => sum + (item.calories || 0), 0),
+      goals.calorieTarget || 2200
+    );
+    const train = day.workoutDone ? 100 : 0;
+    return clampPct((water + steps + cals + train) / 4);
+  }
+
+  function shortDateLabel(dateKey) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
   /* ─── Set SVG ring progress ──────────────────────────────── */
   function setRing(id, pctVal) {
     const el = document.getElementById(id);
@@ -94,6 +141,8 @@
     const rawDay = data.days && data.days[key];
     const day    = rawDay ? S.migrateDay(JSON.parse(JSON.stringify(rawDay))) : S.emptyDay();
     const goals  = data.goals || {};
+    const burn   = B.totalActiveBurn(day, data.profile || {});
+    const streak = workoutStreakDays(data);
 
     // ── Calorie totals ─────────────────────────────────────
     let cals = 0, prot = 0;
@@ -153,6 +202,38 @@
     if (calsEl) animateNumber(calsEl, cals, 800);
     if (calsSubEl) calsSubEl.textContent = goalCal > 0 ? `${Math.round(pEat)}% of ${goalCal} kcal` : 'kcal in';
 
+    const proteinEl = document.getElementById('vt-stat-protein');
+    const proteinSubEl = document.getElementById('vt-stat-protein-sub');
+    const burnedEl = document.getElementById('vt-stat-burned');
+    const burnedSubEl = document.getElementById('vt-stat-burned-sub');
+    if (proteinEl) proteinEl.textContent = `${Math.round(prot)}g`;
+    if (proteinSubEl) {
+      const pProt = goalProt > 0 ? clampPct((prot / goalProt) * 100) : 0;
+      proteinSubEl.textContent = `${pProt}% of ${goalProt}g target`;
+    }
+    if (burnedEl) burnedEl.textContent = `${Math.round(burn.total || 0)} kcal`;
+    if (burnedSubEl) burnedSubEl.textContent = `Walk ${Math.round(burn.walk || 0)} · Train ${Math.round(burn.train || 0)}`;
+
+    const setBar = (id, value) => {
+      const bar = document.getElementById(id);
+      if (bar) bar.style.width = `${clampPct(value)}%`;
+    };
+    setBar('vt-stat-steps-bar', pMove);
+    setBar('vt-stat-cals-bar', pEat);
+    setBar('vt-stat-protein-bar', goalProt > 0 ? (prot / goalProt) * 100 : 0);
+    setBar('vt-stat-burned-bar', goalCal > 0 ? ((burn.total || 0) / goalCal) * 100 : 0);
+
+    const greetingTitle = document.getElementById('eng-greeting-title');
+    if (greetingTitle) {
+      const name = (data.profile && data.profile.name && String(data.profile.name).trim()) || 'Athlete';
+      greetingTitle.textContent = `${greetingLabel()}, ${name} 👋`;
+    }
+
+    renderHomeWeekBars(data, goals);
+    renderHomeStreak(streak);
+    renderMonthlyTrend(data, goals);
+    renderHistoryInsights(data, goals);
+
     // ── Water Grid ────────────────────────────────────────
     renderWaterGrid(waterMl, goalWater);
 
@@ -168,6 +249,149 @@
     if (el) el.textContent = val;
   }
 
+  async function persistCachedData(nextData) {
+    const S = window.VeroTrackStorage;
+    if (!S || !nextData) return;
+    const Auth = window.VeroTrackAuth;
+    const email = Auth && typeof Auth.getCurrentUser === 'function'
+      ? await Auth.getCurrentUser()
+      : null;
+    S._cachedData = nextData;
+    await S.save(nextData, email);
+    document.dispatchEvent(new CustomEvent('vt:datachanged'));
+  }
+
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._vtTimer);
+    toast._vtTimer = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 1600);
+  }
+
+  function renderHomeWeekBars(data, goals) {
+    const wrap = document.getElementById('vt-home-week-bars');
+    const summary = document.getElementById('vt-home-week-summary');
+    if (!wrap || !data || !data.days) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const points = [];
+    for (let i = 6; i >= 0; i -= 1) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = formatDateKey(d);
+      const day = data.days[key] ? data.days[key] : null;
+      const score = day ? dayProgressScore(day, goals) : 0;
+      points.push({
+        key,
+        score,
+        label: d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1),
+      });
+    }
+
+    wrap.innerHTML = '';
+    points.forEach((p) => {
+      const item = document.createElement('div');
+      item.className = 'neo-week-bars__item';
+      item.innerHTML = `
+        <span class="neo-week-bars__fill" style="height:${Math.max(8, p.score)}%"></span>
+        <span class="neo-week-bars__label">${p.label}</span>
+      `;
+      wrap.appendChild(item);
+    });
+
+    if (summary) {
+      const avg = Math.round(points.reduce((sum, p) => sum + p.score, 0) / Math.max(1, points.length));
+      summary.textContent = `${avg}% average over the last 7 days`;
+    }
+  }
+
+  function renderHomeStreak(streak) {
+    const value = document.getElementById('vt-home-streak-value');
+    const note = document.getElementById('vt-home-streak-note');
+    if (value) value.textContent = `🔥 ${streak} day streak`;
+    if (note) {
+      if (streak >= 7) note.textContent = 'Elite consistency. Keep compounding wins.';
+      else if (streak >= 3) note.textContent = 'Momentum is building. Protect your streak.';
+      else note.textContent = 'Log one action now and start the chain.';
+    }
+  }
+
+  function renderMonthlyTrend(data, goals) {
+    const mount = document.getElementById('vt-month-trend');
+    if (!mount || !data || !data.days) return;
+
+    const days = 30;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const values = [];
+    for (let i = days - 1; i >= 0; i -= 1) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = formatDateKey(d);
+      const day = data.days[key] ? data.days[key] : null;
+      values.push(day ? dayProgressScore(day, goals) : 0);
+    }
+
+    const w = 320;
+    const h = 116;
+    const padX = 10;
+    const padY = 12;
+    const stepX = (w - padX * 2) / (days - 1);
+    const points = values.map((v, i) => {
+      const x = padX + i * stepX;
+      const y = h - padY - ((v / 100) * (h - padY * 2));
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    });
+    const area = [`${padX},${h - padY}`, ...points, `${w - padX},${h - padY}`].join(' ');
+
+    mount.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" class="neo-month-trend__svg" aria-hidden="true" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="neoTrendStroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#38bdf8" />
+            <stop offset="100%" stop-color="#f59e0b" />
+          </linearGradient>
+          <linearGradient id="neoTrendArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(56,189,248,0.38)" />
+            <stop offset="100%" stop-color="rgba(245,158,11,0.04)" />
+          </linearGradient>
+        </defs>
+        <polyline points="${area}" fill="url(#neoTrendArea)" stroke="none" />
+        <polyline points="${points.join(' ')}" fill="none" stroke="url(#neoTrendStroke)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    `;
+  }
+
+  function renderHistoryInsights(data, goals) {
+    if (!data || !data.days) return;
+    const bestEl = document.getElementById('vt-insight-best');
+    const worstEl = document.getElementById('vt-insight-worst');
+    const avgEl = document.getElementById('vt-insight-avg');
+    if (!bestEl && !worstEl && !avgEl) return;
+
+    const keys = Object.keys(data.days).sort().slice(-30);
+    if (!keys.length) {
+      if (bestEl) bestEl.textContent = 'No data yet';
+      if (worstEl) worstEl.textContent = 'No data yet';
+      if (avgEl) avgEl.textContent = 'Start logging';
+      return;
+    }
+
+    const scored = keys.map((k) => ({ key: k, score: dayProgressScore(data.days[k], goals) }));
+    const best = scored.reduce((max, curr) => (curr.score > max.score ? curr : max), scored[0]);
+    const worst = scored.reduce((min, curr) => (curr.score < min.score ? curr : min), scored[0]);
+    const avg = Math.round(scored.reduce((sum, curr) => sum + curr.score, 0) / scored.length);
+
+    if (bestEl) bestEl.textContent = `${shortDateLabel(best.key)} · ${best.score}%`;
+    if (worstEl) worstEl.textContent = `${shortDateLabel(worst.key)} · ${worst.score}%`;
+    if (avgEl) avgEl.textContent = `${avg}% average progress`;
+  }
+
   /* ──────────────────────────────────────────────────────────
      WATER GRID — 5 rows × 6 cols = 30 cups
      Each cell ≈ (goalWater / 30) ml
@@ -176,9 +400,55 @@
     const grid = document.getElementById('vt-water-grid');
     if (!grid) return;
 
+    const S = window.VeroTrackStorage;
+    const cachedData = S && S._cachedData;
+    if (!cachedData) return;
+
     const CELLS = 30;
     const mlPerCell = Math.round(goalWater / CELLS) || 100;
     const filled = Math.min(CELLS, Math.floor(waterMl / mlPerCell));
+
+    grid.dataset.mlPerCell = String(mlPerCell);
+
+    if (!grid._vtTapBound) {
+      grid._vtTapBound = true;
+      grid.addEventListener('click', async (event) => {
+        const target = event.target instanceof Element
+          ? event.target.closest('.vt-water-cell')
+          : null;
+        if (!target) return;
+
+        const idx = Number(target.dataset.index);
+        if (!Number.isFinite(idx)) return;
+
+        const storage = window.VeroTrackStorage;
+        const data = storage && storage._cachedData;
+        if (!storage || !data) return;
+
+        const perCell = Number(grid.dataset.mlPerCell) || 100;
+        const key = todayKey();
+        if (!data.days[key]) {
+          data.days[key] = storage.emptyDay();
+        }
+
+        const currentMl = data.days[key].waterMl || 0;
+        const currentFilled = Math.floor(currentMl / perCell);
+        let nextFilled = idx + 1;
+        if (currentFilled === nextFilled) {
+          nextFilled = Math.max(0, nextFilled - 1);
+        }
+
+        data.days[key].waterMl = nextFilled * perCell;
+
+        try {
+          await persistCachedData(data);
+          renderPremiumUI();
+          showToast(`${data.days[key].waterMl} ml water logged`);
+        } catch {
+          showToast('Could not update water log');
+        }
+      });
+    }
 
     // Build once or rebuild
     if (grid.children.length !== CELLS) {
@@ -186,7 +456,8 @@
       for (let i = 0; i < CELLS; i++) {
         const cell = document.createElement('div');
         cell.className = 'vt-water-cell';
-        cell.setAttribute('aria-label', `${mlPerCell * (i + 1)} ml`);
+        cell.dataset.index = String(i);
+        cell.setAttribute('aria-label', `Set water to ${mlPerCell * (i + 1)} ml`);
         cell.style.animationDelay = `${i * 0.02}s`;
         grid.appendChild(cell);
       }
