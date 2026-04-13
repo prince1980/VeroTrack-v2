@@ -3,7 +3,6 @@
   const USER_EMAIL_COOKIE_NAME = 'vt_user_email';
   const SESSION_STORAGE_KEY = 'vt_session_email';
   const LOCAL_USERS_KEY = 'vt_local_users';
-  const PENDING_CLOUD_AUTH_KEY = 'vt_pending_cloud_auth_v1';
   const PENDING_CLOUD_AUTH_MAX_AGE_MS = 1000 * 60 * 60 * 8; // 8h
   const USERS_DB_NAME = 'VeroTrackUsers';
   const USERS_STORE_NAME = 'users';
@@ -12,6 +11,7 @@
   let currentUser = null;
   let authDB = null;
   let currentUserPromise = null;
+  let pendingCloudAuth = null;
 
   function normalizeEmail(email) {
     return String(email || '').trim().toLowerCase();
@@ -44,46 +44,41 @@
 
   function savePendingCloudAuth(email, password, intent) {
     const normalized = normalizeEmail(email);
-    if (!normalized || !password) return;
-    const payload = {
+    const secret = typeof password === 'string' ? password : '';
+    if (!normalized || !secret) return;
+
+    // Keep pending cloud credentials only in memory so passwords are never persisted at rest.
+    pendingCloudAuth = {
       email: normalized,
-      password: String(password),
+      password: secret,
       intent: intent === 'signup' ? 'signup' : 'signin',
       ts: Date.now(),
     };
-    safeStorageSet(PENDING_CLOUD_AUTH_KEY, JSON.stringify(payload));
   }
 
   function clearPendingCloudAuth() {
-    safeStorageRemove(PENDING_CLOUD_AUTH_KEY);
+    pendingCloudAuth = null;
   }
 
   function loadPendingCloudAuth() {
-    try {
-      const raw = safeStorageGet(PENDING_CLOUD_AUTH_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') {
-        clearPendingCloudAuth();
-        return null;
-      }
-      const email = normalizeEmail(parsed.email);
-      const password = typeof parsed.password === 'string' ? parsed.password : '';
-      const intent = parsed.intent === 'signup' ? 'signup' : 'signin';
-      const ts = Number(parsed.ts);
-      if (!email || !password || !Number.isFinite(ts)) {
-        clearPendingCloudAuth();
-        return null;
-      }
-      if (Date.now() - ts > PENDING_CLOUD_AUTH_MAX_AGE_MS) {
-        clearPendingCloudAuth();
-        return null;
-      }
-      return { email, password, intent, ts };
-    } catch {
+    const pending = pendingCloudAuth;
+    if (!pending || typeof pending !== 'object') return null;
+
+    const email = normalizeEmail(pending.email);
+    const password = typeof pending.password === 'string' ? pending.password : '';
+    const intent = pending.intent === 'signup' ? 'signup' : 'signin';
+    const ts = Number(pending.ts);
+
+    if (!email || !password || !Number.isFinite(ts)) {
       clearPendingCloudAuth();
       return null;
     }
+    if (Date.now() - ts > PENDING_CLOUD_AUTH_MAX_AGE_MS) {
+      clearPendingCloudAuth();
+      return null;
+    }
+
+    return { email, password, intent, ts };
   }
 
   function hasPendingCloudAuth() {
@@ -485,10 +480,18 @@
     return { success: true, email: normalized, cloud: false };
   }
 
-  async function loginWithGoogle() {
+  async function loginWithGoogle(expectedEmail) {
     const client = getSupabaseClient();
     if (!client) {
       throw new Error('Google sign-in is not configured yet');
+    }
+
+    const loginHint = normalizeEmail(expectedEmail);
+    const queryParams = {
+      prompt: 'select_account',
+    };
+    if (loginHint) {
+      queryParams.login_hint = loginHint;
     }
 
     try {
@@ -496,7 +499,8 @@
         client.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: getAppRedirectUrl()
+            redirectTo: getAppRedirectUrl(),
+            queryParams,
           },
         }),
         CLOUD_CALL_TIMEOUT_MS,

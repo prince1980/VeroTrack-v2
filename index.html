@@ -716,10 +716,6 @@
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }
-        try {
-          var regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(function (r) { return r.unregister(); }));
-        } catch (e) { /* ignore */ }
       });
     }
   </script>

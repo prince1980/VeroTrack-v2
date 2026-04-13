@@ -25,6 +25,16 @@
     lastAttemptAt: 0,
   };
 
+  function normalizeEmail(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function hasCloudIdentityMismatch(session, appUserEmail) {
+    const appEmail = normalizeEmail(appUserEmail);
+    const cloudEmail = normalizeEmail(session && session.user ? session.user.email : '');
+    return !!(appEmail && cloudEmail && appEmail !== cloudEmail);
+  }
+
   async function initializeApp() {
     try {
       // Check authentication first
@@ -90,6 +100,24 @@
 
         const email = await Auth.getCurrentUser();
         if (!email) return;
+
+        if (hasCloudIdentityMismatch(session, email)) {
+          showToast('Cloud account mismatch. Sign out cloud and reconnect with the same email.', true);
+          try {
+            await S.supabase.auth.signOut();
+          } catch {
+            // no-op
+          }
+          syncSessionCache = {
+            checkedAt: Date.now(),
+            session: null,
+            timedOut: false,
+            failed: false,
+          };
+          updateSyncUI();
+          return;
+        }
+
         data = await S.syncWithCloud(data, email);
         renderAll(true);
       });
@@ -1830,6 +1858,17 @@
 
     const user = session && session.user ? session.user : null;
     if (user && user.email) {
+      if (hasCloudIdentityMismatch(session, appUserEmail)) {
+        indicator.className = 'status-indicator error';
+        text.className = 'status-text';
+        text.textContent = `Cloud mismatch: signed in as ${user.email}. Logout cloud and reconnect as ${appUserEmail}.`;
+        els.btnSyncLogin.hidden = true;
+        els.btnSyncLogout.hidden = false;
+        els.syncStatus.classList.add('off');
+        els.syncStatus.classList.remove('connected');
+        return;
+      }
+
       indicator.className = 'status-indicator connected';
       text.className = 'status-text';
       text.textContent = `Synced as ${user.email}`;
@@ -1897,6 +1936,9 @@
         typeof Auth.hasPendingCloudAuth === 'function' &&
         Auth.hasPendingCloudAuth()
       );
+      const appUserEmail = Auth && typeof Auth.getCurrentUser === 'function'
+        ? await Auth.getCurrentUser().catch(function () { return null; })
+        : null;
 
       // Try password-based auto resume first if pending credentials exist.
       if (Auth && typeof Auth.tryResumeCloudSession === 'function' && pendingResume) {
@@ -1921,16 +1963,20 @@
 
       // Reuse hardened Google flow with reachability checks and stable redirect URL.
       if (Auth && typeof Auth.loginWithGoogle === 'function') {
-        await Auth.loginWithGoogle();
+        await Auth.loginWithGoogle(appUserEmail);
         return;
       }
 
       const redirectTo = window.location.origin + window.location.pathname;
+      const normalizedAppEmail = normalizeEmail(appUserEmail);
       const { data: oauthData, error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
           skipBrowserRedirect: true,
+          queryParams: normalizedAppEmail
+            ? { prompt: 'select_account', login_hint: normalizedAppEmail }
+            : { prompt: 'select_account' },
         },
       });
 
