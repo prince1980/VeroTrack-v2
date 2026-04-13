@@ -128,6 +128,7 @@
       <span id="hero-burn" hidden></span>
       <span id="hero-budget" hidden></span>
       <span id="hero-footnote" hidden></span>
+      <span id="status-time" hidden></span>
       <!-- Metabolic detail -->
       <span id="burn-walk" hidden></span>
       <span id="burn-train" hidden></span>
@@ -165,6 +166,12 @@
       <span id="vt-stat-steps-sub" hidden></span>
       <span id="vt-stat-cals" hidden></span>
       <span id="vt-stat-cals-sub" hidden></span>
+      <button type="button" id="btn-toggle-breakdown" hidden aria-expanded="false"></button>
+      <div id="panel-breakdown" hidden></div>
+      <span id="tip-text" hidden></span>
+      <span id="tip-source" hidden></span>
+      <span id="tip-loading" hidden></span>
+      <button type="button" id="btn-tip-refresh" hidden></button>
     </section>
 
 
@@ -677,20 +684,20 @@
 
   <!-- ── SCRIPTS ── -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/auth.js?v=2026-04-13-v7"></script>
-  <script src="js/supabase-config.js?v=2026-04-13-v7"></script>
-  <script src="js/storage.js?v=2026-04-13-v7"></script>
-  <script src="js/burn.js?v=2026-04-13-v7"></script>
-  <script src="js/gamify.js?v=2026-04-13-v7"></script>
-  <script src="js/tips.js?v=2026-04-13-v7"></script>
-  <script src="js/gemini.js?v=2026-04-13-v7"></script>
-  <script src="js/login-ui.js?v=2026-04-13-v7"></script>
-  <script src="js/app.js?v=2026-04-13-v7"></script>
-  <script src="js/premium-ui.js?v=2026-04-13-v7"></script>
+  <script src="js/auth.js?v=2026-04-13-v8"></script>
+  <script src="js/supabase-config.js?v=2026-04-13-v8"></script>
+  <script src="js/storage.js?v=2026-04-13-v8"></script>
+  <script src="js/burn.js?v=2026-04-13-v8"></script>
+  <script src="js/gamify.js?v=2026-04-13-v8"></script>
+  <script src="js/tips.js?v=2026-04-13-v8"></script>
+  <script src="js/gemini.js?v=2026-04-13-v8"></script>
+  <script src="js/login-ui.js?v=2026-04-13-v8"></script>
+  <script src="js/app.js?v=2026-04-13-v8"></script>
+  <script src="js/premium-ui.js?v=2026-04-13-v8"></script>
   <!-- v5 Behavior Engine Modules -->
-  <script src="js/quick-log.js?v=2026-04-13-v7"></script>
-  <script src="js/session.js?v=2026-04-13-v7"></script>
-  <script src="js/insights.js?v=2026-04-13-v7"></script>
+  <script src="js/quick-log.js?v=2026-04-13-v8"></script>
+  <script src="js/session.js?v=2026-04-13-v8"></script>
+  <script src="js/insights.js?v=2026-04-13-v8"></script>
 
   <script>
     // Initialize authentication and app
@@ -700,7 +707,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-13-v7';
+        var swVersion = '2026-04-13-v8';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

@@ -29,6 +29,12 @@
     return String(value || '').trim().toLowerCase();
   }
 
+  function cacheSharedData(nextData) {
+    if (!nextData || typeof nextData !== 'object') return;
+    S._cachedData = nextData;
+    window.__VT_APP_DATA = nextData;
+  }
+
   function hasCloudIdentityMismatch(session, appUserEmail) {
     const appEmail = normalizeEmail(appUserEmail);
     const cloudEmail = normalizeEmail(session && session.user ? session.user.email : '');
@@ -49,8 +55,10 @@
 
       // Load user data
       data = await S.load(email);
+      cacheSharedData(data);
       if (email && S.syncWithCloud) {
         data = await S.syncWithCloud(data, email);
+        cacheSharedData(data);
       }
 
       isInitialized = true;
@@ -59,8 +67,10 @@
       console.error('Failed to load user data:', err);
       const email = await Auth.getCurrentUser();
       data = await S.load(email);
+      cacheSharedData(data);
       if (email && S.syncWithCloud) {
         data = await S.syncWithCloud(data, email);
+        cacheSharedData(data);
       }
       isInitialized = true;
       startApp();
@@ -70,6 +80,8 @@
   function startApp() {
     if (!isInitialized || startApp._started) return;
     startApp._started = true;
+
+    cacheSharedData(data);
 
     fillMetSelect();
     updateStatusTime();
@@ -119,6 +131,7 @@
         }
 
         data = await S.syncWithCloud(data, email);
+        cacheSharedData(data);
         renderAll(true);
       });
       updateSyncUI();
@@ -287,6 +300,7 @@
   async function persist() {
     try {
       const email = await Auth.getCurrentUser();
+      cacheSharedData(data);
       if (!await S.save(data, email)) {
         showToast('Could not save data', true);
       }
@@ -2056,6 +2070,7 @@
 
         await S.save(parsed, email);
         data = await S.load(email);
+        cacheSharedData(data);
         fillMetSelect();
         renderAll();
         showToast('Backup restored');
@@ -2105,6 +2120,7 @@
     if (S.isDataStorageKey && S.isDataStorageKey(e.key)) {
       const email = await Auth.getCurrentUser();
       data = await S.load(email);
+      cacheSharedData(data);
       renderAll(true);
     }
   });

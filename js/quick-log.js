@@ -26,6 +26,10 @@
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
 
+  function dateKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
   function truncate(text, max) {
     const t = String(text || '');
     if (t.length <= max) return t;
@@ -74,7 +78,18 @@
 
   function getData() {
     const S = window.VeroTrackStorage;
-    return S && S._cachedData ? S._cachedData : null;
+    if (S && S._cachedData) return S._cachedData;
+    if (window.__VT_APP_DATA) return window.__VT_APP_DATA;
+    return null;
+  }
+
+  function requireData() {
+    const data = getData();
+    if (!data) {
+      showToast('Loading your data...', 1200);
+      return null;
+    }
+    return data;
   }
 
   function getDay() {
@@ -522,7 +537,7 @@
 
   /* ─── Home action handlers ────────────────────────────────────── */
   async function quickAddWater(ml) {
-    const data = getData();
+    const data = requireData();
     if (!data) return;
     const key  = todayKey();
     if (!data.days[key]) data.days[key] = window.VeroTrackStorage.emptyDay();
@@ -542,7 +557,7 @@
   }
 
   async function quickAddSteps(add) {
-    const data = getData();
+    const data = requireData();
     if (!data) return;
     const key = todayKey();
     if (!data.days[key]) data.days[key] = window.VeroTrackStorage.emptyDay();
@@ -592,7 +607,9 @@
     if (actionHub && !actionHub._wired) {
       actionHub._wired = true;
       actionHub.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-hub-action]');
+        const target = e.target instanceof Element ? e.target : null;
+        if (!target) return;
+        const btn = target.closest('[data-hub-action]');
         if (!btn) return;
         const action = btn.getAttribute('data-hub-action');
         if (action === 'water') {
