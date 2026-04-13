@@ -864,8 +864,16 @@ body {
   align-items: flex-end;
   transition: opacity var(--eng-mid);
   opacity: 0;
+  pointer-events: none;
 }
-.eng-sheet-overlay.is-open { opacity: 1; }
+.eng-sheet-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.eng-sheet-overlay[hidden] {
+  display: none !important;
+}
 
 .eng-sheet {
   width: 100%;
