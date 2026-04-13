@@ -782,12 +782,12 @@
       if (state.proteinDeficit > 0) {
         title = `You need ${state.proteinDeficit}g protein to hit goal`;
         sub = 'Tap + Log Meal and use a quick repeat';
-        tone = 'red';
+        tone = 'blue';
         action = 'meal';
       } else if (!state.workoutDone) {
         title = 'Workout still pending tonight';
         sub = 'Tap + Start Workout to close the day strong';
-        tone = 'red';
+        tone = 'blue';
         action = 'workout';
       } else if (state.waterPct < 100) {
         title = 'One final hydration push';
