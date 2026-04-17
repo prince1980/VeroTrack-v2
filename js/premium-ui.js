@@ -212,10 +212,10 @@
     setBar('vt-stat-cals-bar', pEat);
     setBar('vt-stat-protein-bar', goalProt > 0 ? (prot / goalProt) * 100 : 0);
 
-    const greetingTitle = document.getElementById('eng-greeting-title');
-    if (greetingTitle) {
+    const headerNameEl = document.getElementById('vt-header-name');
+    if (headerNameEl) {
       const name = (data.profile && data.profile.name && String(data.profile.name).trim()) || 'Athlete';
-      greetingTitle.textContent = `${greetingLabel()}, ${name} 👋`;
+      headerNameEl.textContent = `${name} 👋`;
     }
 
     renderHomeWeekBars(data, goals);

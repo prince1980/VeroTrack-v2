@@ -9,9 +9,9 @@
 /* ─── DESIGN TOKENS ──────────────────────────────────────────── */
 :root {
   /* Core Palette */
-  --black:        #000000;
+  --black:        #141414;
   --surface-1:    #111111;   /* card base */
-  --surface-2:    #151515;   /* elevated */
+  --surface-2:    #181818;   /* elevated header */
   --surface-3:    #1c1c1c;   /* input */
   --border-1:     rgba(255,255,255,0.05);
   --border-2:     rgba(255,255,255,0.1);
@@ -160,6 +160,96 @@ body { padding: 0 !important; }
 .device-shell {
   background: var(--black) !important;
   box-shadow: none !important;
+}
+
+/* ─── IOS HEADER SYSTEM ──────────────────────────────────────── */
+.ios-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: transparent;
+  width: 100%;
+  margin-bottom: var(--sp-2);
+}
+
+.ios-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ios-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  object-fit: cover;
+}
+
+.ios-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ios-kicker {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+  line-height: 1;
+}
+
+.ios-name {
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+  font-family: 'Sora', 'Inter', sans-serif;
+}
+
+.ios-header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ios-icon-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: rgba(255,255,255,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+
+.ios-icon-btn:hover {
+  transform: scale(1.05);
+  opacity: 1;
+}
+.ios-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.ios-icon-dot {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 8px;
+  height: 8px;
+  background: var(--c-primary);
+  border-radius: 50%;
+  border: 1.5px solid var(--black);
 }
 
 @media (min-width: 480px) {
