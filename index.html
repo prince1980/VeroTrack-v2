@@ -46,7 +46,7 @@
       </p>
 
       <!-- Hero Daily Progress -->
-      <article class="neo-hero-card" aria-label="Daily progress">
+      <article class="neo-hero-card hover-scale animate-slide-up" aria-label="Daily progress">
         <p class="neo-hero-card__kicker">Daily Progress</p>
         <h2 class="neo-hero-card__value" id="vt-daily-pct">0%</h2>
         <p class="neo-hero-card__sub" id="vt-daily-label">You're slightly behind — 2 actions left</p>
@@ -61,7 +61,7 @@
 
       <!-- Habit Rings -->
       <section class="neo-rings" aria-label="Habit rings">
-        <article class="neo-ring neo-ring--hydrate">
+        <article class="neo-ring neo-ring--hydrate hover-scale animate-slide-up">
           <div class="neo-ring__frame">
             <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
               <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
@@ -73,7 +73,7 @@
           <p class="neo-ring__value" id="vt-ring-hydrate-pct">0%</p>
         </article>
 
-        <article class="neo-ring neo-ring--move">
+        <article class="neo-ring neo-ring--move hover-scale animate-slide-up">
           <div class="neo-ring__frame">
             <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
               <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
@@ -85,7 +85,7 @@
           <p class="neo-ring__value" id="vt-ring-move-pct">0%</p>
         </article>
 
-        <article class="neo-ring neo-ring--eat">
+        <article class="neo-ring neo-ring--eat hover-scale animate-slide-up">
           <div class="neo-ring__frame">
             <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
               <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
@@ -97,7 +97,7 @@
           <p class="neo-ring__value" id="vt-ring-eat-pct">0%</p>
         </article>
 
-        <article class="neo-ring neo-ring--train">
+        <article class="neo-ring neo-ring--train hover-scale animate-slide-up">
           <div class="neo-ring__frame">
             <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
               <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
@@ -112,7 +112,7 @@
 
       <!-- Stat Cards -->
       <section class="neo-stat-grid" aria-label="Daily stat cards">
-        <article class="neo-stat-card neo-stat-card--steps">
+        <article class="neo-stat-card neo-stat-card--steps hover-scale animate-slide-up">
           <span class="neo-stat-card__badge">👟</span>
           <p class="neo-stat-card__label">Steps</p>
           <p class="neo-stat-card__value" id="vt-stat-steps">0</p>
@@ -120,7 +120,7 @@
           <div class="neo-stat-card__bar"><span id="vt-stat-steps-bar"></span></div>
         </article>
 
-        <article class="neo-stat-card neo-stat-card--calories">
+        <article class="neo-stat-card neo-stat-card--calories hover-scale animate-slide-up">
           <span class="neo-stat-card__badge">🔥</span>
           <p class="neo-stat-card__label">Calories</p>
           <p class="neo-stat-card__value" id="vt-stat-cals">0</p>
@@ -128,7 +128,7 @@
           <div class="neo-stat-card__bar"><span id="vt-stat-cals-bar"></span></div>
         </article>
 
-        <article class="neo-stat-card neo-stat-card--protein">
+        <article class="neo-stat-card neo-stat-card--protein hover-scale animate-slide-up">
           <span class="neo-stat-card__badge">🥚</span>
           <p class="neo-stat-card__label">Protein</p>
           <p class="neo-stat-card__value" id="vt-stat-protein">0g</p>
@@ -136,7 +136,7 @@
           <div class="neo-stat-card__bar"><span id="vt-stat-protein-bar"></span></div>
         </article>
 
-        <article class="neo-stat-card neo-stat-card--burned">
+        <article class="neo-stat-card neo-stat-card--burned hover-scale animate-slide-up">
           <span class="neo-stat-card__badge">⚡</span>
           <p class="neo-stat-card__label">Burned</p>
           <p class="neo-stat-card__value" id="vt-stat-burned">0 kcal</p>
@@ -148,7 +148,7 @@
       <!-- Weekly + Streak + Body Analytics -->
       <section class="neo-home-analytics">
         <!-- Body Analytics -->
-        <article class="lux-card" style="grid-column: 1 / -1; padding-bottom: 24px;">
+        <article class="lux-card hover-scale animate-slide-up" style="grid-column: 1 / -1; padding-bottom: 24px; animation-delay: 0.1s;">
           <p class="card-title" style="color:var(--c-cyan);">⚡ Body Analytics</p>
           <div class="radar-container" style="width: 100%; height: 260px; position: relative; margin-bottom: 16px;">
             <canvas id="bodyRadarCard"></canvas>
@@ -409,8 +409,10 @@
             </label>
             <div class="food-ai-actions" style="display:flex; gap: 8px; margin-top: 12px;">
               <button type="button" class="btn btn-secondary" id="btn-food-analyze" style="flex:1; background: rgba(168,85,247,0.2); color: #e9d5ff; border: 1px solid rgba(168,85,247,0.4);">Analyze with Gemini</button>
-              <button type="submit" class="btn btn-primary" style="flex:1; background: var(--c-purple); box-shadow: 0 0 16px rgba(168,85,247,0.4);">Save entry</button>
+              <button type="submit" class="btn btn-primary hover-scale" style="flex:1; background: var(--c-purple); box-shadow: 0 0 16px rgba(168,85,247,0.4);">Save entry</button>
             </div>
+
+            <div id="ai-skeleton-loader" class="skeleton-glow" style="height: 64px; margin-top: 12px; display: none;"></div>
 
             <div id="food-ai-preview" class="ai-preview" hidden>
               <p class="ai-preview-title">Review before saving</p>
@@ -872,7 +874,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-18-v18';
+        var swVersion = '2026-04-18-v19';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

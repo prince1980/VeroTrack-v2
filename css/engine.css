@@ -2256,6 +2256,7 @@ textarea {
   color: #fff !important;
   background: linear-gradient(145deg, rgba(0, 240, 255, 0.2), rgba(168, 85, 247, 0.1)) !important;
   box-shadow: 0 0 16px rgba(0, 240, 255, 0.3) !important;
+  transform: translateY(-4px);
 }
 
 .tab-bar--lux .tab-btn:active {

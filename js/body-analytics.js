@@ -52,16 +52,25 @@ class BodyAnalyticsChart {
     // Easing function (easeOutQuart)
     const ease = 1 - Math.pow(1 - this.progress, 4);
     
-    this.draw(ease);
-    
-    if (this.progress < 1) {
-      requestAnimationFrame((t) => this.animate(t));
+    // 3s Breathing pulse (starts after initial draw completes to be smooth)
+    let pulseScale = 1;
+    if (elapsed > duration) {
+       let pulseElapsed = elapsed - duration;
+       pulseScale = 1 + ((Math.sin((pulseElapsed % 3000) / 3000 * Math.PI * 2 - Math.PI/2) + 1) / 2 * 0.02);
     }
+    
+    this.draw(ease, pulseScale, this.progress);
+    
+    // Loop infinitely for breathing
+    requestAnimationFrame((t) => this.animate(t));
   }
 
-  draw(ease = 1) {
+  draw(ease = 1, scale = 1, opacity = 1) {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
+    
+    // Fade in
+    ctx.globalAlpha = opacity;
     
     const sides = this.data.length;
     const angleStep = (Math.PI * 2) / sides;
@@ -71,8 +80,11 @@ class BodyAnalyticsChart {
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     
+    // Adjusted radius for pulse
+    const activeRadius = this.radius * scale;
+
     for (let i = 1; i <= gridLayers; i++) {
-      let r = this.radius * (i / gridLayers);
+      let r = activeRadius * (i / gridLayers);
       ctx.beginPath();
       for (let j = 0; j <= sides; j++) {
         let a = j * angleStep - Math.PI / 2;
@@ -87,8 +99,8 @@ class BodyAnalyticsChart {
     // 2. Draw axis lines
     for (let j = 0; j < sides; j++) {
       let a = j * angleStep - Math.PI / 2;
-      let x = this.centerX + Math.cos(a) * this.radius;
-      let y = this.centerY + Math.sin(a) * this.radius;
+      let x = this.centerX + Math.cos(a) * activeRadius;
+      let y = this.centerY + Math.sin(a) * activeRadius;
       
       ctx.beginPath();
       ctx.moveTo(this.centerX, this.centerY);
@@ -101,8 +113,8 @@ class BodyAnalyticsChart {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      let lx = this.centerX + Math.cos(a) * (this.radius + 15);
-      let ly = this.centerY + Math.sin(a) * (this.radius + 15);
+      let lx = this.centerX + Math.cos(a) * (activeRadius + 15);
+      let ly = this.centerY + Math.sin(a) * (activeRadius + 15);
       ctx.fillText(this.data[j].label.toUpperCase(), lx, ly);
     }
     
@@ -113,7 +125,7 @@ class BodyAnalyticsChart {
     for (let j = 0; j < sides; j++) {
       let a = j * angleStep - Math.PI / 2;
       let percent = Math.min((this.data[j].value / this.data[j].target), 1) * ease;
-      let valueRadius = this.radius * percent;
+      let valueRadius = activeRadius * percent;
       
       let x = this.centerX + Math.cos(a) * valueRadius;
       let y = this.centerY + Math.sin(a) * valueRadius;
@@ -154,6 +166,9 @@ class BodyAnalyticsChart {
       ctx.shadowBlur = 0;
       ctx.stroke();
     });
+
+    // Reset alpha
+    ctx.globalAlpha = 1;
   }
 }
 

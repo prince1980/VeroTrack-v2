@@ -97,7 +97,12 @@
     const el = document.getElementById(id);
     if (!el) return;
     const offset = RING_C - (pctVal / 100) * RING_C;
-    el.style.strokeDashoffset = String(offset);
+    // Force CSS engine to apply initial state then transition
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.strokeDashoffset = String(offset);
+      });
+    });
   }
 
   /* ─── Number counter animation ───────────────────────────── */
@@ -294,14 +299,17 @@
     }
 
     wrap.innerHTML = '';
+    let delayIdx = 0;
     points.forEach((p) => {
       const item = document.createElement('div');
-      item.className = 'neo-week-bars__item';
+      item.className = 'neo-week-bars__item animate-bar-rise';
+      item.style.animationDelay = `${delayIdx * 0.05}s`;
       item.innerHTML = `
         <span class="neo-week-bars__fill" style="height:${Math.max(8, p.score)}%"></span>
         <span class="neo-week-bars__label">${p.label}</span>
       `;
       wrap.appendChild(item);
+      delayIdx++;
     });
 
     if (summary) {
@@ -455,7 +463,7 @@
       grid.innerHTML = '';
       for (let i = 0; i < CELLS; i++) {
         const cell = document.createElement('div');
-        cell.className = 'vt-water-cell';
+        cell.className = 'vt-water-cell hover-scale';
         cell.dataset.index = String(i);
         cell.setAttribute('aria-label', `Set water to ${mlPerCell * (i + 1)} ml`);
         cell.style.animationDelay = `${i * 0.02}s`;
@@ -547,7 +555,7 @@
       }
 
       const cell = document.createElement('div');
-      cell.className = 'vt-heatmap-cell';
+      cell.className = 'vt-heatmap-cell hover-scale animate-fade-in';
       cell.setAttribute('data-level', level);
       cell.setAttribute('title', `${key}${level > 0 ? ' — activity logged' : ''}`);
       cell.style.animationDelay = `${i * 0.004}s`;

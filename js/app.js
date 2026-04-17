@@ -1439,6 +1439,10 @@
       const original = els.btnFoodAnalyze.textContent;
       els.btnFoodAnalyze.disabled = true;
       els.btnFoodAnalyze.textContent = 'Analyzing...';
+      
+      const skeletonNode = document.getElementById('ai-skeleton-loader');
+      if (skeletonNode) skeletonNode.style.display = 'block';
+      if (els.foodPreview) els.foodPreview.hidden = true;
 
       try {
         const result = await AI.analyzeMeal(mealText);
@@ -1472,6 +1476,12 @@
         updateAIStatusUI(false, 'AI error');
         showToast((err && err.message) || 'Gemini meal analysis failed', true);
       } finally {
+        if (skeletonNode) skeletonNode.style.display = 'none';
+        if (els.foodPreview && !els.foodPreview.hidden) {
+            els.foodPreview.classList.add('animate-fade-in');
+            // Remove the class after animation completes to allow re-triggering
+            setTimeout(() => { els.foodPreview.classList.remove('animate-fade-in'); }, 400);
+        }
         els.btnFoodAnalyze.disabled = false;
         els.btnFoodAnalyze.textContent = original;
       }
