@@ -28,11 +28,11 @@
 
       <!-- Premium Header -->
       <header class="ios-header">
-        <button type="button" class="ios-header__left" id="btn-open-profile-temp" aria-label="Open profile">
-          <img src="https://ui-avatars.com/api/?name=Prince&background=0A84FF&color=fff&size=88" alt="Avatar" class="ios-avatar">
+        <button type="button" class="ios-header__left" id="btn-open-profile" aria-label="Open profile">
+          <img src="img/avatars/1.png" alt="Avatar" class="ios-avatar" id="header-avatar-img">
           <div class="ios-header__text">
             <span class="ios-kicker">Ready to deliver!</span>
-            <span class="ios-name" id="vt-header-name">Prince 👋</span>
+            <span class="ios-name" id="vt-header-name">Athlete 👋</span>
           </div>
         </button>
         <div class="ios-header__right">
@@ -669,6 +669,78 @@
     </div>
   </div>
 
+  <!-- ── PROFILE HUB ── -->
+  <div id="profile-overlay" class="modal-overlay modal-overlay--sheet" hidden>
+    <div class="modal modal--sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+      <div class="sheet-grab" aria-hidden="true"></div>
+      <header class="modal-header" style="justify-content:flex-end; border-bottom:none;">
+        <button type="button" class="btn-icon" id="profile-close" aria-label="Close" style="font-size:0.9rem; width:auto; padding:4px 12px; background:var(--surface-2); border-radius:16px;">Close</button>
+      </header>
+      <div class="modal-body modal-body--settings" style="padding-top:0;">
+        
+        <div class="profile-hero">
+          <div class="profile-avatar-wrap" id="btn-edit-avatar" aria-label="Change avatar" role="button">
+            <img src="img/avatars/1.png" alt="User Avatar" class="profile-hero-avatar" id="hero-avatar-img" />
+          </div>
+          <h2 class="profile-hero-name" id="hero-profile-name">Athlete</h2>
+          <span class="profile-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--c-success)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Active Member
+          </span>
+        </div>
+
+        <h3 class="ios-list-header">General</h3>
+        <ul class="ios-list">
+          <li class="ios-list-item" id="nav-edit-profile-name">
+            <div class="ios-list-icon" style="background:var(--surface-3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+            <div class="ios-list-content">Edit Name <span class="ios-chevron">›</span></div>
+          </li>
+          <li class="ios-list-item" id="nav-open-settings">
+            <div class="ios-list-icon" style="background:var(--surface-3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
+            <div class="ios-list-content">App Settings &amp; Targets <span class="ios-chevron">›</span></div>
+          </li>
+        </ul>
+
+        <h3 class="ios-list-header">Data &amp; Support</h3>
+        <ul class="ios-list">
+          <li class="ios-list-item" onclick="document.getElementById('btn-export').click();">
+            <div class="ios-list-icon" style="background:#5e5ce6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></div>
+            <div class="ios-list-content">Export Backup <span class="ios-chevron">›</span></div>
+          </li>
+          <li class="ios-list-item" onclick="alert('Support center coming soon!')">
+            <div class="ios-list-icon" style="background:#64d2ff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+            <div class="ios-list-content">Help &amp; Support <span class="ios-chevron">›</span></div>
+          </li>
+        </ul>
+
+        <ul class="ios-list" style="margin-top: 32px;">
+          <li class="ios-list-item" id="nav-logout-btn">
+            <div class="ios-list-icon" style="background:var(--c-danger)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></div>
+            <div class="ios-list-content ios-text-danger">Log Out <span class="ios-chevron">›</span></div>
+          </li>
+        </ul>
+        
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AVATAR PICKER ── -->
+  <div id="avatar-picker-overlay" class="modal-overlay modal-overlay--sheet" hidden>
+    <div class="modal modal--sheet" role="dialog" aria-modal="true" aria-labelledby="avatar-picker-title">
+      <div class="sheet-grab" aria-hidden="true"></div>
+      <header class="modal-header">
+        <h2 id="avatar-picker-title">Memoji Pack</h2>
+        <button type="button" class="btn-icon" id="avatar-picker-close" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body modal-body--settings">
+        <p style="text-align:center; color:var(--text-2); font-size:0.85rem; margin-bottom:16px;">Select a profile picture to represent you.</p>
+        <div class="avatar-grid" id="avatar-grid">
+           <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── SETTINGS SHEET ── -->
   <div id="settings-overlay" class="modal-overlay modal-overlay--sheet" hidden>
     <div class="modal modal--sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -824,7 +896,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-18-v23';
+        var swVersion = '2026-04-18-v24';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

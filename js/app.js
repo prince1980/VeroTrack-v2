@@ -24,7 +24,7 @@
     inFlight: false,
     lastAttemptAt: 0,
   };
-  const OVERLAY_IDS = ['modal-overlay', 'settings-overlay', 'eng-exercise-sheet'];
+  const OVERLAY_IDS = ['modal-overlay', 'settings-overlay', 'eng-exercise-sheet', 'profile-overlay', 'avatar-picker-overlay'];
   let lastOverlayTrigger = null;
 
   function normalizeEmail(value) {
@@ -106,6 +106,14 @@
     }
     if (els.settingsOverlay && !els.settingsOverlay.hidden) {
       closeSettings();
+      return true;
+    }
+    if (els.profileOverlay && !els.profileOverlay.hidden) {
+      closeProfileOverlay();
+      return true;
+    }
+    if (els.avatarPickerOverlay && !els.avatarPickerOverlay.hidden) {
+      closeAvatarPicker();
       return true;
     }
     if (els.modalOverlay && !els.modalOverlay.hidden) {
@@ -253,6 +261,19 @@
     profileBanner: document.getElementById('profile-banner'),
     btnBannerSettings: document.getElementById('btn-banner-settings'),
     btnOpenSettings: document.getElementById('btn-open-settings'),
+    btnOpenProfile: document.getElementById('btn-open-profile'),
+    headerAvatarImg: document.getElementById('header-avatar-img'),
+    profileOverlay: document.getElementById('profile-overlay'),
+    avatarPickerOverlay: document.getElementById('avatar-picker-overlay'),
+    btnEditAvatar: document.getElementById('btn-edit-avatar'),
+    navEditProfileName: document.getElementById('nav-edit-profile-name'),
+    navOpenSettings: document.getElementById('nav-open-settings'),
+    navLogoutBtn: document.getElementById('nav-logout-btn'),
+    heroAvatarImg: document.getElementById('hero-avatar-img'),
+    heroProfileName: document.getElementById('hero-profile-name'),
+    profileClose: document.getElementById('profile-close'),
+    avatarPickerClose: document.getElementById('avatar-picker-close'),
+    avatarGrid: document.getElementById('avatar-grid'),
     homeGreeting: document.getElementById('home-greeting'),
     homeDate: document.getElementById('home-date'),
     homeProtein: document.getElementById('home-protein'),
@@ -1177,6 +1198,70 @@
     restoreOverlayTriggerFocus();
   }
 
+  function openProfileOverlay() {
+    if (els.profileOverlay) {
+      const p = data.profile;
+      if (els.heroProfileName) els.heroProfileName.textContent = p.name || 'Athlete';
+      const avatarSrc = p.avatarUrl || 'img/avatars/1.png';
+      if (els.heroAvatarImg) els.heroAvatarImg.src = avatarSrc;
+      if (els.headerAvatarImg) els.headerAvatarImg.src = avatarSrc;
+      rememberOverlayTrigger();
+      markOverlayState(els.profileOverlay, true);
+      syncBodyScrollLock();
+    }
+  }
+
+  function closeProfileOverlay() {
+    if (!els.profileOverlay || els.profileOverlay.hidden) return;
+    markOverlayState(els.profileOverlay, false);
+    syncBodyScrollLock();
+    restoreOverlayTriggerFocus();
+  }
+
+  function openAvatarPicker() {
+    if (!els.avatarPickerOverlay) return;
+    // Render grid
+    renderAvatarGrid();
+    rememberOverlayTrigger();
+    markOverlayState(els.avatarPickerOverlay, true);
+    syncBodyScrollLock();
+  }
+
+  function closeAvatarPicker() {
+    if (!els.avatarPickerOverlay || els.avatarPickerOverlay.hidden) return;
+    markOverlayState(els.avatarPickerOverlay, false);
+    syncBodyScrollLock();
+    restoreOverlayTriggerFocus();
+  }
+
+  function renderAvatarGrid() {
+    if (!els.avatarGrid) return;
+    const TOTAL_AVATARS = 4;
+    const currentAvatar = data.profile.avatarUrl || 'img/avatars/1.png';
+    let html = '';
+    for (let i = 1; i <= TOTAL_AVATARS; i++) {
+      const src = `img/avatars/${i}.png`;
+      const isSelected = currentAvatar === src ? 'selected' : '';
+      html += `<div class="avatar-grid-item ${isSelected}" data-src="${src}">
+                 <img src="${src}" alt="Avatar ${i}">
+               </div>`;
+    }
+    els.avatarGrid.innerHTML = html;
+
+    const items = els.avatarGrid.querySelectorAll('.avatar-grid-item');
+    items.forEach(item => {
+      item.addEventListener('click', () => {
+        data.profile.avatarUrl = item.getAttribute('data-src');
+        persist();
+        renderAll();
+        const newSrc = data.profile.avatarUrl;
+        if (els.heroAvatarImg) els.heroAvatarImg.src = newSrc;
+        if (els.headerAvatarImg) els.headerAvatarImg.src = newSrc;
+        closeAvatarPicker();
+      });
+    });
+  }
+
   function updateBmrReadout() {
     const p = {
       weightKg: parseFloat(els.setWeightKg.value) || 0,
@@ -1758,6 +1843,42 @@
       closeSettings();
     }
   });
+
+  if (els.profileClose) els.profileClose.addEventListener('click', closeProfileOverlay);
+  if (els.profileOverlay) els.profileOverlay.addEventListener('click', (e) => {
+    if (e.target === els.profileOverlay) closeProfileOverlay();
+  });
+  if (els.avatarPickerClose) els.avatarPickerClose.addEventListener('click', closeAvatarPicker);
+  if (els.avatarPickerOverlay) els.avatarPickerOverlay.addEventListener('click', (e) => {
+    if (e.target === els.avatarPickerOverlay) closeAvatarPicker();
+  });
+  if (els.btnEditAvatar) els.btnEditAvatar.addEventListener('click', openAvatarPicker);
+  if (els.btnOpenProfile) els.btnOpenProfile.addEventListener('click', openProfileOverlay);
+
+  if (els.navOpenSettings) {
+    els.navOpenSettings.addEventListener('click', () => {
+      closeProfileOverlay();
+      setTimeout(openSettings, 50);
+    });
+  }
+  if (els.navLogoutBtn) {
+    els.navLogoutBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to log out?')) {
+        document.getElementById('btn-logout').click();
+      }
+    });
+  }
+  if (els.navEditProfileName) {
+    els.navEditProfileName.addEventListener('click', () => {
+      const newName = prompt('Enter your name:', data.profile.name || '');
+      if (newName !== null && newName.trim() !== '') {
+        data.profile.name = newName.trim();
+        persist();
+        renderAll();
+        if (els.heroProfileName) els.heroProfileName.textContent = data.profile.name;
+      }
+    });
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

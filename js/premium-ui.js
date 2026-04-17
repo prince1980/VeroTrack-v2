@@ -218,6 +218,11 @@
       headerNameEl.textContent = `${name} 👋`;
     }
 
+    const headerAvatarEl = document.getElementById('header-avatar-img');
+    if (headerAvatarEl && data.profile && data.profile.avatarUrl) {
+      headerAvatarEl.src = data.profile.avatarUrl;
+    }
+
     renderHomeWeekBars(data, goals);
     renderHomeStreak(streak);
     renderMonthlyTrend(data, goals);

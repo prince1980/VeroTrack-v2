@@ -268,6 +268,154 @@ body { padding: 0 !important; }
   border: 1.5px solid var(--black);
 }
 
+/* ─── PROFILE HUB HERO ───────────────────────────────────────── */
+.profile-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.profile-avatar-wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-spring);
+}
+.profile-avatar-wrap:hover {
+  transform: scale(1.05);
+}
+.profile-hero-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.1);
+  background: var(--surface-3);
+}
+.profile-hero-name {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  color: #fff;
+  font-family: 'Sora', 'Inter', sans-serif;
+}
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-3);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* ─── IOS LIST SYSTEM ─────────────────────────────────────────── */
+.ios-list-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin: 0 0 8px 16px;
+  font-weight: 600;
+}
+
+.ios-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  background: var(--surface-2);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ios-list-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  position: relative;
+}
+.ios-list-item:active {
+  background: var(--surface-3);
+}
+.ios-list-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 48px;
+  right: 0;
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+}
+
+.ios-list-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: #fff;
+}
+
+.ios-list-content {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #fff;
+}
+.ios-text-danger {
+  color: var(--c-danger) !important;
+}
+
+.ios-chevron {
+  color: var(--text-3);
+  font-size: 1.2rem;
+  font-weight: 400;
+}
+
+/* ─── AVATAR GRID ────────────────────────────────────────────── */
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 8px;
+}
+
+.avatar-grid-item {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-spring), border-color 0.2s;
+  background: var(--surface-2);
+}
+.avatar-grid-item:hover {
+  transform: scale(1.05);
+}
+.avatar-grid-item.selected {
+  border-color: var(--c-primary);
+  transform: scale(1.05);
+}
+.avatar-grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 @media (min-width: 480px) {
   .device-shell {
     box-shadow:
