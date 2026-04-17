@@ -15,12 +15,12 @@
 
 :root {
   /* ── Surfaces ─────────────────────────────────────────────── */
-  --eng-bg:         #060a13;
-  --eng-surface:    #0f1727;
-  --eng-surface-2:  #162033;
-  --eng-surface-3:  #1d2a42;
-  --eng-border:     rgba(148, 163, 184, 0.18);
-  --eng-border-2:   rgba(191, 219, 254, 0.28);
+  --eng-bg:         #000000;
+  --eng-surface:    #111111;
+  --eng-surface-2:  #151515;
+  --eng-surface-3:  #1c1c1c;
+  --eng-border:     rgba(148, 163, 184, 0.1);
+  --eng-border-2:   rgba(191, 219, 254, 0.15);
 
   /* ── Typography ───────────────────────────────────────────── */
   --eng-text:       #f8fbff;
@@ -28,19 +28,19 @@
   --eng-text-muted: #70819f;
 
   /* ── Semantic Colors ──────────────────────────────────────── */
-  --eng-green:      #22c55e;
-  --eng-green-dim:  rgba(34, 197, 94, 0.12);
-  --eng-green-bdr:  rgba(34, 197, 94, 0.25);
-  --eng-red:        #ef4444;
-  --eng-red-dim:    rgba(239, 68, 68, 0.12);
-  --eng-red-bdr:    rgba(239, 68, 68, 0.25);
-  --eng-blue:       #38bdf8;
-  --eng-blue-dim:   rgba(56, 189, 248, 0.15);
-  --eng-blue-bdr:   rgba(125, 211, 252, 0.35);
-  --eng-amber:      #f59e0b;
-  --eng-amber-dim:  rgba(245, 158, 11, 0.12);
-  --eng-cyan:       #06b6d4;
-  --eng-cyan-dim:   rgba(6, 182, 212, 0.12);
+  --eng-green:      #00ff96;
+  --eng-green-dim:  rgba(0, 255, 150, 0.12);
+  --eng-green-bdr:  rgba(0, 255, 150, 0.25);
+  --eng-red:        #ff3b3b;
+  --eng-red-dim:    rgba(255, 59, 59, 0.12);
+  --eng-red-bdr:    rgba(255, 59, 59, 0.25);
+  --eng-blue:       #3b82f6;
+  --eng-blue-dim:   rgba(59, 130, 246, 0.15);
+  --eng-blue-bdr:   rgba(59, 130, 246, 0.35);
+  --eng-amber:      #ffea00;
+  --eng-amber-dim:  rgba(255, 234, 0, 0.12);
+  --eng-cyan:       #00f0ff;
+  --eng-cyan-dim:   rgba(0, 240, 255, 0.12);
   --eng-purple:     #a855f7;
   --eng-purple-dim: rgba(168, 85, 247, 0.12);
 
@@ -67,9 +67,9 @@
 body {
   font-family: 'Manrope', 'Segoe UI', sans-serif;
   background:
-    radial-gradient(1200px 700px at 12% -15%, rgba(56, 189, 248, 0.2), transparent 55%),
-    radial-gradient(1100px 780px at 100% -20%, rgba(34, 197, 94, 0.14), transparent 58%),
-    linear-gradient(180deg, #060a13 0%, #04070d 60%, #03050a 100%);
+    radial-gradient(1200px 700px at 12% -15%, rgba(0, 240, 255, 0.15), transparent 55%),
+    radial-gradient(1100px 780px at 100% -20%, rgba(0, 255, 150, 0.1), transparent 58%),
+    #000000;
 }
 
 .app {
@@ -163,9 +163,9 @@ body {
   padding: 16px;
   border-radius: var(--eng-r-lg);
   border: 1px solid var(--eng-border);
-  background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
   backdrop-filter: blur(8px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), var(--eng-soft-shadow);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), var(--eng-soft-shadow);
   cursor: pointer;
   transition:
     background var(--eng-fast),
@@ -818,8 +818,9 @@ body {
   width: 100%;
   min-height: 80px;
   padding: var(--eng-sp3);
-  background: var(--eng-green-dim);
-  border: 2px solid var(--eng-green-bdr);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(168, 85, 247, 0.05) 100%);
+  border: 2px solid rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
   border-radius: var(--eng-r-xl);
   cursor: pointer;
   transition: background var(--eng-fast), transform var(--eng-fast) var(--eng-ease), border-color var(--eng-fast);
@@ -827,21 +828,21 @@ body {
   text-align: left;
   margin-bottom: var(--eng-sp2);
 }
-.eng-workout-hero:hover  { background: rgba(34,197,94,0.18); }
+.eng-workout-hero:hover  { background: rgba(168, 85, 247, 0.18); }
 .eng-workout-hero:active { transform: scale(0.98); }
 
 .eng-workout-hero.is-done {
-  background: var(--eng-green-dim);
-  border-color: var(--eng-green);
+  background: var(--eng-purple-dim);
+  border-color: var(--eng-purple);
 }
 .eng-workout-hero.is-active-session {
-  background: rgba(34,197,94,0.2);
-  border-color: var(--eng-green);
+  background: rgba(168, 85, 247, 0.2);
+  border-color: var(--eng-purple);
   animation: sessionPulse 2s ease-in-out infinite;
 }
 @keyframes sessionPulse {
-  0%, 100% { border-color: var(--eng-green-bdr); }
-  50%       { border-color: var(--eng-green); }
+  0%, 100% { border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+  50%       { border-color: var(--eng-purple); box-shadow: 0 0 30px rgba(168, 85, 247, 0.4); }
 }
 
 .eng-workout-hero__icon  { font-size: 2rem; flex-shrink: 0; }
@@ -2253,7 +2254,8 @@ textarea {
 
 .tab-bar--lux .tab-btn.active {
   color: #fff !important;
-  background: linear-gradient(145deg, rgba(59, 130, 246, 0.3), rgba(168, 85, 247, 0.2)) !important;
+  background: linear-gradient(145deg, rgba(0, 240, 255, 0.2), rgba(168, 85, 247, 0.1)) !important;
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.3) !important;
 }
 
 .tab-bar--lux .tab-btn:active {
