@@ -170,17 +170,6 @@
     const pEat     = pct(cals, goalCal);
     const pTrain   = day.workoutDone ? 100 : 0;
 
-    setRing('vt-ring-hydrate', pHydrate);
-    setRing('vt-ring-move',    pMove);
-    setRing('vt-ring-eat',     pEat);
-    setRing('vt-ring-train',   pTrain);
-
-    const fmt = v => `${Math.round(v)}%`;
-    setText('vt-ring-hydrate-pct', fmt(pHydrate));
-    setText('vt-ring-move-pct',    fmt(pMove));
-    setText('vt-ring-eat-pct',     fmt(pEat));
-    setText('vt-ring-train-pct',   day.workoutDone ? 'Done' : 'Pending');
-
     // ── Daily Progress Card ────────────────────────────────
     const overallPct = Math.round((pHydrate + pMove + pEat + pTrain) / 4);
     const pctEl  = document.getElementById('vt-daily-pct');
@@ -209,15 +198,11 @@
 
     const proteinEl = document.getElementById('vt-stat-protein');
     const proteinSubEl = document.getElementById('vt-stat-protein-sub');
-    const burnedEl = document.getElementById('vt-stat-burned');
-    const burnedSubEl = document.getElementById('vt-stat-burned-sub');
     if (proteinEl) proteinEl.textContent = `${Math.round(prot)}g`;
     if (proteinSubEl) {
       const pProt = goalProt > 0 ? clampPct((prot / goalProt) * 100) : 0;
       proteinSubEl.textContent = `${pProt}% of ${goalProt}g target`;
     }
-    if (burnedEl) burnedEl.textContent = `${Math.round(burn.total || 0)} kcal`;
-    if (burnedSubEl) burnedSubEl.textContent = `Walk ${Math.round(burn.walk || 0)} · Train ${Math.round(burn.train || 0)}`;
 
     const setBar = (id, value) => {
       const bar = document.getElementById(id);
@@ -226,7 +211,6 @@
     setBar('vt-stat-steps-bar', pMove);
     setBar('vt-stat-cals-bar', pEat);
     setBar('vt-stat-protein-bar', goalProt > 0 ? (prot / goalProt) * 100 : 0);
-    setBar('vt-stat-burned-bar', goalCal > 0 ? ((burn.total || 0) / goalCal) * 100 : 0);
 
     const greetingTitle = document.getElementById('eng-greeting-title');
     if (greetingTitle) {

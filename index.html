@@ -59,56 +59,6 @@
         </button>
       </article>
 
-      <!-- Habit Rings -->
-      <section class="neo-rings" aria-label="Habit rings">
-        <article class="neo-ring neo-ring--hydrate hover-scale animate-slide-up">
-          <div class="neo-ring__frame">
-            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
-              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
-              <circle class="neo-ring__fill" id="vt-ring-hydrate" cx="32" cy="32" r="26"></circle>
-            </svg>
-            <span class="neo-ring__icon">💧</span>
-          </div>
-          <p class="neo-ring__label">Hydrate</p>
-          <p class="neo-ring__value" id="vt-ring-hydrate-pct">0%</p>
-        </article>
-
-        <article class="neo-ring neo-ring--move hover-scale animate-slide-up">
-          <div class="neo-ring__frame">
-            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
-              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
-              <circle class="neo-ring__fill" id="vt-ring-move" cx="32" cy="32" r="26"></circle>
-            </svg>
-            <span class="neo-ring__icon">👟</span>
-          </div>
-          <p class="neo-ring__label">Move</p>
-          <p class="neo-ring__value" id="vt-ring-move-pct">0%</p>
-        </article>
-
-        <article class="neo-ring neo-ring--eat hover-scale animate-slide-up">
-          <div class="neo-ring__frame">
-            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
-              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
-              <circle class="neo-ring__fill" id="vt-ring-eat" cx="32" cy="32" r="26"></circle>
-            </svg>
-            <span class="neo-ring__icon">🍽️</span>
-          </div>
-          <p class="neo-ring__label">Eat</p>
-          <p class="neo-ring__value" id="vt-ring-eat-pct">0%</p>
-        </article>
-
-        <article class="neo-ring neo-ring--train hover-scale animate-slide-up">
-          <div class="neo-ring__frame">
-            <svg class="neo-ring__svg" viewBox="0 0 64 64" aria-hidden="true">
-              <circle class="neo-ring__track" cx="32" cy="32" r="26"></circle>
-              <circle class="neo-ring__fill" id="vt-ring-train" cx="32" cy="32" r="26"></circle>
-            </svg>
-            <span class="neo-ring__icon">🏋️</span>
-          </div>
-          <p class="neo-ring__label">Train</p>
-          <p class="neo-ring__value" id="vt-ring-train-pct">0%</p>
-        </article>
-      </section>
 
       <!-- Stat Cards -->
       <section class="neo-stat-grid" aria-label="Daily stat cards">
@@ -136,13 +86,6 @@
           <div class="neo-stat-card__bar"><span id="vt-stat-protein-bar"></span></div>
         </article>
 
-        <article class="neo-stat-card neo-stat-card--burned hover-scale animate-slide-up">
-          <span class="neo-stat-card__badge">⚡</span>
-          <p class="neo-stat-card__label">Burned</p>
-          <p class="neo-stat-card__value" id="vt-stat-burned">0 kcal</p>
-          <p class="neo-stat-card__sub" id="vt-stat-burned-sub">Active burn today</p>
-          <div class="neo-stat-card__bar"><span id="vt-stat-burned-bar"></span></div>
-        </article>
       </section>
 
       <!-- Weekly + Streak + Body Analytics -->
@@ -874,7 +817,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-18-v19';
+        var swVersion = '2026-04-18-v20';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

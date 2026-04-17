@@ -38,9 +38,7 @@ class BodyAnalyticsChart {
   }
 
   getColor(percent) {
-    if (percent >= 80) return '#00ff96'; // Optimal - Neon Green
-    if (percent >= 40) return '#ffea00'; // Moderate - Neon Yellow
-    return '#ff3b3b';                    // Deficient - Neon Red
+    return '#0a84ff'; // Apple Blue
   }
 
   animate(currentTime) {
@@ -137,28 +135,20 @@ class BodyAnalyticsChart {
     }
     ctx.closePath();
     
-    // Fill with a subtle glowing gradient based on overall score, or just a translucent cyan
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.1)';
+    // Fill with a subtle flat accent color
+    ctx.fillStyle = 'rgba(10, 132, 255, 0.15)';
     ctx.fill();
     
-    // Draw polygon stroke with glow
+    // Draw polygon stroke flat
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#00f0ff';
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = '#00f0ff';
+    ctx.strokeStyle = '#0a84ff';
     ctx.stroke();
-    
-    // Reset shadow
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = 'transparent';
     
     // 4. Draw node points
     points.forEach((p) => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
       ctx.fillStyle = p.color;
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = p.color;
       ctx.fill();
       
       ctx.lineWidth = 1;

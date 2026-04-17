@@ -17,37 +17,25 @@
   --border-2:     rgba(255,255,255,0.1);
   --border-glow:  rgba(255,255,255,0.15);
 
-  /* Semantic Accent Colors (Neon) */
-  --c-blue:       #3b82f6;
-  --c-blue-soft:  rgba(59,130,246,0.1);
-  --c-blue-glow:  rgba(59,130,246,0.4);
-  --c-green:      #00ff96; /* Neon Green */
-  --c-green-soft: rgba(0,255,150,0.1);
-  --c-green-glow: rgba(0,255,150,0.4);
-  --c-red:        #ff3b3b;
-  --c-red-soft:   rgba(255,59,59,0.1);
-  --c-red-glow:   rgba(255,59,59,0.4);
-  --c-purple:     #a855f7;
-  --c-purple-soft:rgba(168,85,247,0.1);
-  --c-purple-glow:rgba(168,85,247,0.4);
-  --c-cyan:       #00f0ff;
-  --c-cyan-soft:  rgba(0,240,255,0.1);
-  --c-cyan-glow:  rgba(0,240,255,0.4);
-  --c-yellow:     #ffea00;
-  --c-yellow-soft:rgba(255,234,0,0.1);
-  --c-yellow-glow:rgba(255,234,0,0.4);
+  /* Semantic Accent Colors */
+  --c-primary:       #0a84ff; /* Apple Blue */
+  --c-primary-soft:  rgba(10,132,255,0.1);
+  --c-primary-glow:  rgba(10,132,255,0.3);
+  --c-success:       #30d158; /* Apple Green */
+  --c-warning:       #ff9f0a; /* Apple Orange */
+  --c-danger:        #ff453a; /* Apple Red */
 
   /* Text */
   --text-1:   #ffffff;
-  --text-2:   rgba(255,255,255,0.7);
-  --text-3:   rgba(255,255,255,0.4);
-  --text-4:   rgba(255,255,255,0.22);
+  --text-2:   #a1a1aa; /* clean grey */
+  --text-3:   #71717a;
+  --text-4:   #52525b;
 
   /* Spacing — strict 8pt grid */
-  --sp-1:  8px;
-  --sp-2:  16px;
-  --sp-3:  24px;
-  --sp-4:  32px;
+  --sp-1:  12px;
+  --sp-2:  20px;
+  --sp-3:  32px;
+  --sp-4:  48px;
 
   /* Radius */
   --r-sm:   10px;
@@ -66,14 +54,11 @@
   --dur-xslow:  0.65s;
 
   /* Shadows */
-  --shadow-card:  0 10px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
-  --shadow-float: 0 20px 60px rgba(0,0,0,0.55);
-  --shadow-glow-blue:   0 0 20px rgba(59,130,246,0.15);
-  --shadow-glow-green:  0 0 20px rgba(0,255,150,0.15);
-  --shadow-glow-purple: 0 0 20px rgba(168,85,247,0.15);
-  --shadow-glow-cyan:   0 0 20px rgba(0,240,255,0.15);
-  --shadow-glow-yellow: 0 0 20px rgba(255,234,0,0.15);
-  --shadow-glow-red:    0 0 20px rgba(255,59,59,0.15);
+  --shadow-card:  0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+  --shadow-float: 0 12px 32px rgba(0,0,0,0.4);
+  --shadow-glow-primary: 0 0 16px rgba(10,132,255,0.25);
+  
+  --vt-border: rgba(255,255,255,0.08); /* Unified delicate border */
 }
 
 /* ─── ANIMATIONS & MOTION SYSTEM ─────────────────────────────── */
@@ -127,16 +112,15 @@
 }
 
 .hover-scale {
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease-out;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @media (hover: hover) {
   .hover-scale:hover {
-    transform: scale(1.03);
-    z-index: 2;
+    transform: scale(1.01);
   }
 }
 .hover-scale:active {
-  transform: scale(0.96);
+  transform: scale(0.98);
 }
 
 /* Page transitions */
@@ -226,26 +210,15 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-1) !important;
   border: 1px solid var(--border-1) !important;
   border-radius: var(--r-xl) !important;
-  padding: var(--sp-2) !important;
-  margin-bottom: var(--sp-2) !important;
-  box-shadow: var(--shadow-card) !important;
+  padding: var(--sp-3) !important;
+  margin-bottom: var(--sp-3) !important;
   position: relative;
   overflow: hidden;
-  transition: transform var(--dur-fast) var(--ease-out),
-              box-shadow var(--dur-fast) var(--ease-out) !important;
-}
-
-.lux-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at top left, rgba(255,255,255,0.03) 0%, transparent 60%);
-  pointer-events: none;
+  transition: transform var(--dur-fast) var(--ease-out) !important;
 }
 
 .lux-card:hover {
-  transform: translateY(-2px) !important;
+  transform: translateY(-1px) !important;
   border-color: var(--border-2) !important;
 }
 
@@ -366,9 +339,9 @@ h1, h2, h3, h4, h5, h6 {
    HOME PAGE — DAILY PROGRESS CARD (Blue Hero)
    ═══════════════════════════════════════════════════════════════ */
 .vt-progress-card {
-  background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(168,85,247,0.1) 100%), var(--surface-1) !important;
-  border-color: rgba(59,130,246,0.2) !important;
-  box-shadow: 0 0 20px rgba(59,130,246,0.15), var(--shadow-card) !important;
+  background: var(--surface-1) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  box-shadow: none !important;
   padding: var(--sp-3) var(--sp-2) !important;
   border-radius: var(--r-xl) !important;
 }
@@ -389,10 +362,6 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1;
   color: #fff;
   margin: 0;
-  background: linear-gradient(135deg, #fff 0%, #93c5fd 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .vt-progress-card__label {
@@ -413,7 +382,7 @@ h1, h2, h3, h4, h5, h6 {
   height: 100%;
   width: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  background: var(--c-primary);
   transition: width var(--dur-xslow) var(--ease-out);
 }
 
@@ -440,15 +409,15 @@ h1, h2, h3, h4, h5, h6 {
 .vt-stat-card:active { transform: scale(0.97); }
 
 .vt-stat-card--steps {
-  background: linear-gradient(145deg, #081a10 0%, #060d0a 100%) !important;
-  border-color: rgba(34,197,94,0.2) !important;
-  box-shadow: 0 8px 32px rgba(34,197,94,0.06) !important;
+  background: var(--surface-1) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  box-shadow: none !important;
 }
 
 .vt-stat-card--cals {
-  background: linear-gradient(145deg, #1a0808 0%, #0f0606 100%) !important;
-  border-color: rgba(239,68,68,0.2) !important;
-  box-shadow: 0 8px 32px rgba(239,68,68,0.06) !important;
+  background: var(--surface-1) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  box-shadow: none !important;
 }
 
 .vt-stat-card__badge {
@@ -463,11 +432,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .vt-stat-card--steps .vt-stat-card__badge {
-  background: var(--c-green-soft);
+  background: var(--surface-2);
 }
 
 .vt-stat-card--cals .vt-stat-card__badge {
-  background: var(--c-red-soft);
+  background: var(--surface-2);
 }
 
 .vt-stat-card__label {
