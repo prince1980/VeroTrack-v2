@@ -162,6 +162,22 @@ body { padding: 0 !important; }
   box-shadow: none !important;
 }
 
+/* ─── SPACING FIXES ──────────────────────────────────────────── */
+#log-mode-quick .eng-log-section {
+  margin-bottom: var(--sp-2) !important;
+}
+
+.settings-block .field {
+  margin-bottom: var(--sp-2);
+}
+
+.settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: 10px;
+}
+
 /* ─── IOS HEADER SYSTEM ──────────────────────────────────────── */
 .ios-header {
   display: flex;
