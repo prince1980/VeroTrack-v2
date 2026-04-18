@@ -1719,35 +1719,65 @@ input::placeholder { color: var(--text-4) !important; }
 
 
 /* ═══════════════════════════════════════════════════════════════
-   BANNER — MINIMAL INLINE HINT
+   BANNER — ACTION CARD (Go Premium style)
    ═══════════════════════════════════════════════════════════════ */
-.banner-strip {
+.action-banner {
   display: flex !important;
   align-items: center !important;
-  gap: 6px !important;
-  padding: 4px 16px 10px !important;
-  margin: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  font-size: 0.76rem !important;
-  color: rgba(134,239,172,0.65) !important;
-  line-height: 1.3 !important;
+  gap: 12px !important;
+  padding: 12px 14px 12px 16px !important;
+  margin: 0 0 14px !important;
+  background: #1c1c1e !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
 }
-.banner-strip svg { flex-shrink: 0; opacity: 0.55; }
-.banner-strip__link {
-  background: none !important;
-  border: none !important;
-  padding: 0 2px !important;
-  margin-left: 4px !important;
-  color: rgba(52,211,153,0.8) !important;
-  font-size: 0.76rem !important;
-  font-weight: 700 !important;
-  cursor: pointer !important;
-  white-space: nowrap !important;
-  text-decoration: underline !important;
-  text-underline-offset: 2px !important;
+.action-banner[hidden] { display: none !important; }
+
+.action-banner__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
 }
-.banner-strip[hidden] { display: none !important; }
+
+.action-banner__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.action-banner__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.action-banner__sub {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.3;
+}
+
+.action-banner__btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.95) !important;
+  border: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #000 !important;
+  transition: transform 0.2s cubic-bezier(0.22,1,0.36,1), opacity 0.2s;
+}
+.action-banner__btn:hover  { opacity: 0.85; }
+.action-banner__btn:active { transform: scale(0.93); }
+
+
 
 /* ═══════════════════════════════════════════════════════════════
    NOTIFICATIONS PANEL
