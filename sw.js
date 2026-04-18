@@ -1,4 +1,4 @@
-const CACHE_NAME = 'verotrack-v2-cache-31';
+const CACHE_NAME = 'verotrack-v2-cache-32';
 
 const ASSETS_TO_CACHE = [
   './',

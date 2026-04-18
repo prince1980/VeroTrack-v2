@@ -975,7 +975,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-18-v31';
+        var swVersion = '2026-04-18-v32';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

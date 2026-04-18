@@ -1243,7 +1243,7 @@
 
   function renderAvatarGrid() {
     if (!els.avatarGrid) return;
-    const TOTAL_AVATARS = 4;
+    const TOTAL_AVATARS = 5;
     const currentAvatar = data.profile.avatarUrl || 'img/avatars/1.png';
     let html = '';
     for (let i = 1; i <= TOTAL_AVATARS; i++) {
