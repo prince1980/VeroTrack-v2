@@ -100,7 +100,7 @@
         </article>
 
         <article class="neo-stat-card neo-stat-card--burned hover-scale animate-slide-up" aria-label="Calories burned today">
-          <span class="neo-stat-card__badge">🔥</span>
+          <span class="neo-stat-card__badge">⚡</span>
           <p class="neo-stat-card__label">Burned</p>
           <p class="neo-stat-card__value" id="vt-stat-burned">0</p>
           <p class="neo-stat-card__sub" id="vt-stat-burned-sub">Steps + Workout</p>
@@ -975,7 +975,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-18-v28';
+        var swVersion = '2026-04-18-v29';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }
