@@ -48,9 +48,7 @@
 
       <!-- Profile Banner -->
       <div id="profile-banner" class="banner-strip" hidden>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Add weight &amp; height for precise burn estimates.
-        <button type="button" class="banner-strip__link" id="btn-banner-settings">Settings →</button>
+        ⚡ Add weight &amp; height for precise burn estimates. <button type="button" class="banner-strip__link" id="btn-banner-settings">Open Settings</button>
       </div>
 
       <!-- Hero Daily Progress -->
@@ -962,7 +960,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-18-v25';
+        var swVersion = '2026-04-18-v26';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }

@@ -90,11 +90,11 @@ body {
 }
 
 .banner {
-  margin-bottom: var(--eng-sp3);
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  background: linear-gradient(120deg, rgba(22, 163, 74, 0.26), rgba(6, 95, 70, 0.18));
+  margin-bottom: 0;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: none;
 }
 
 .eng-header__brand {
