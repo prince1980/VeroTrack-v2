@@ -241,6 +241,15 @@
 
 
 
+    const headerGreetingEl = document.getElementById('vt-header-greeting');
+    if (headerGreetingEl) {
+      const hour = new Date().getHours();
+      let greeting = 'Good evening';
+      if (hour < 12) greeting = 'Good morning';
+      else if (hour < 18) greeting = 'Good afternoon';
+      headerGreetingEl.textContent = `${greeting},`;
+    }
+
     const headerNameEl = document.getElementById('vt-header-name');
     if (headerNameEl) {
       const name = (data.profile && data.profile.name && String(data.profile.name).trim()) || 'Athlete';

@@ -31,7 +31,7 @@
         <button type="button" class="ios-header__left" id="btn-open-profile" aria-label="Open profile">
           <img src="img/avatars/1.png" alt="Avatar" class="ios-avatar" id="header-avatar-img">
           <div class="ios-header__text">
-            <span class="ios-kicker">Ready to deliver!</span>
+            <span class="ios-kicker" id="vt-header-greeting">Ready to deliver!</span>
             <span class="ios-name" id="vt-header-name">Athlete 👋</span>
           </div>
         </button>
@@ -975,7 +975,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async function () {
-        var swVersion = '2026-04-18-v32';
+        var swVersion = '2026-04-18-v33';
         try {
           await navigator.serviceWorker.register('./sw.js?v=' + swVersion);
         } catch (e) { /* ignore */ }
