@@ -212,6 +212,35 @@
     setBar('vt-stat-cals-bar', pEat);
     setBar('vt-stat-protein-bar', goalProt > 0 ? (prot / goalProt) * 100 : 0);
 
+    // ── Burned Card ────────────────────────────────────────
+    const burnedKcal = burn.total;  // walk + workout
+    const burnedEl    = document.getElementById('vt-stat-burned');
+    const burnedSubEl = document.getElementById('vt-stat-burned-sub');
+    const burnedBar   = document.getElementById('vt-stat-burned-bar');
+    if (burnedEl) animateNumber(burnedEl, burnedKcal, 800);
+    if (burnedSubEl) {
+      const parts = [];
+      if (burn.walk  > 0) parts.push(`${burn.walk} walk`);
+      if (burn.train > 0) parts.push(`${burn.train} workout`);
+      burnedSubEl.textContent = parts.length ? parts.join(' · ') + ' kcal' : 'Steps + Workout';
+    }
+    if (burnedBar) {
+      // Fill relative to the calorie intake goal (shows effort vs intake)
+      const burnPct = goalCal > 0 ? clampPct((burnedKcal / goalCal) * 100) : 0;
+      burnedBar.style.width = burnPct + '%';
+    }
+
+    // Persist burned kcal into the day object so it's saved in the database
+    if (rawDay && rawDay.caloriesBurnedTotal !== burnedKcal) {
+      rawDay.caloriesBurnedTotal = burnedKcal;
+      rawDay.caloriesBurnedWalk  = burn.walk;
+      rawDay.caloriesBurnedTrain = burn.train;
+      // Trigger async save if storage is available
+      persistCachedData(data);
+    }
+
+
+
     const headerNameEl = document.getElementById('vt-header-name');
     if (headerNameEl) {
       const name = (data.profile && data.profile.name && String(data.profile.name).trim()) || 'Athlete';
