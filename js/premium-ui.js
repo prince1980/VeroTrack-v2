@@ -139,14 +139,14 @@
     const B = window.VeroTrackBurn;
     if (!S || !B) return;
 
-    const key  = todayKey();
+    const key = todayKey();
     const data = S._cachedData || null;
     if (!data) return;
 
     const rawDay = data.days && data.days[key];
-    const day    = rawDay ? S.migrateDay(JSON.parse(JSON.stringify(rawDay))) : S.emptyDay();
-    const goals  = data.goals || {};
-    const burn   = B.totalActiveBurn(day, data.profile || {});
+    const day = rawDay ? S.migrateDay(JSON.parse(JSON.stringify(rawDay))) : S.emptyDay();
+    const goals = data.goals || {};
+    const burn = B.totalActiveBurn(day, data.profile || {});
     const streak = workoutStreakDays(data);
 
     // ── Calorie totals ─────────────────────────────────────
@@ -156,25 +156,25 @@
     }
 
     const waterMl = day.waterMl || 0;
-    const steps   = day.steps   || 0;
+    const steps = day.steps || 0;
 
     // ── Goals ──────────────────────────────────────────────
-    const goalCal   = goals.calorieTarget   || 2200;
-    const goalProt  = goals.proteinTargetG  || 150;
-    const goalSteps = goals.stepGoal        || 10000;
-    const goalWater = goals.waterGoalMl     || 2500;
+    const goalCal = goals.calorieTarget || 2200;
+    const goalProt = goals.proteinTargetG || 150;
+    const goalSteps = goals.stepGoal || 10000;
+    const goalWater = goals.waterGoalMl || 2500;
 
     // ── Habit Ring percentages ─────────────────────────────
     const pHydrate = pct(waterMl, goalWater);
-    const pMove    = pct(steps, goalSteps);
-    const pEat     = pct(cals, goalCal);
-    const pTrain   = day.workoutDone ? 100 : 0;
+    const pMove = pct(steps, goalSteps);
+    const pEat = pct(cals, goalCal);
+    const pTrain = day.workoutDone ? 100 : 0;
 
     // ── Daily Progress Card ────────────────────────────────
     const overallPct = Math.round((pHydrate + pMove + pEat + pTrain) / 4);
-    const pctEl  = document.getElementById('vt-daily-pct');
-    const barEl  = document.getElementById('vt-daily-bar');
-    const lblEl  = document.getElementById('vt-daily-label');
+    const pctEl = document.getElementById('vt-daily-pct');
+    const barEl = document.getElementById('vt-daily-bar');
+    const lblEl = document.getElementById('vt-daily-label');
 
     if (pctEl) animateNumber(pctEl, overallPct, 700, '%');
     if (barEl) barEl.style.width = overallPct + '%';
@@ -186,10 +186,10 @@
     }
 
     // ── Stat Cards ────────────────────────────────────────
-    const stepsEl    = document.getElementById('vt-stat-steps');
+    const stepsEl = document.getElementById('vt-stat-steps');
     const stepsSubEl = document.getElementById('vt-stat-steps-sub');
-    const calsEl     = document.getElementById('vt-stat-cals');
-    const calsSubEl  = document.getElementById('vt-stat-cals-sub');
+    const calsEl = document.getElementById('vt-stat-cals');
+    const calsSubEl = document.getElementById('vt-stat-cals-sub');
 
     if (stepsEl) animateNumber(stepsEl, steps, 800);
     if (stepsSubEl) stepsSubEl.textContent = goalSteps > 0 ? `${Math.round(pMove)}% of ${goalSteps.toLocaleString()}` : '—';
@@ -214,13 +214,13 @@
 
     // ── Burned Card ────────────────────────────────────────
     const burnedKcal = burn.total;  // walk + workout
-    const burnedEl    = document.getElementById('vt-stat-burned');
+    const burnedEl = document.getElementById('vt-stat-burned');
     const burnedSubEl = document.getElementById('vt-stat-burned-sub');
-    const burnedBar   = document.getElementById('vt-stat-burned-bar');
+    const burnedBar = document.getElementById('vt-stat-burned-bar');
     if (burnedEl) animateNumber(burnedEl, burnedKcal, 800);
     if (burnedSubEl) {
       const parts = [];
-      if (burn.walk  > 0) parts.push(`${burn.walk} walk`);
+      if (burn.walk > 0) parts.push(`${burn.walk} walk`);
       if (burn.train > 0) parts.push(`${burn.train} workout`);
       burnedSubEl.textContent = parts.length ? parts.join(' · ') + ' kcal' : 'Steps + Workout';
     }
@@ -233,7 +233,7 @@
     // Persist burned kcal into the day object so it's saved in the database
     if (rawDay && rawDay.caloriesBurnedTotal !== burnedKcal) {
       rawDay.caloriesBurnedTotal = burnedKcal;
-      rawDay.caloriesBurnedWalk  = burn.walk;
+      rawDay.caloriesBurnedWalk = burn.walk;
       rawDay.caloriesBurnedTrain = burn.train;
       // Trigger async save if storage is available
       persistCachedData(data);
@@ -244,10 +244,10 @@
     const headerGreetingEl = document.getElementById('vt-header-greeting');
     if (headerGreetingEl) {
       const hour = new Date().getHours();
-      let greeting = 'Good evening';
-      if (hour < 12) greeting = 'Good morning';
-      else if (hour < 18) greeting = 'Good afternoon';
-      headerGreetingEl.textContent = `${greeting},`;
+      let greeting = 'Good Evening!';
+      if (hour < 12) greeting = 'Good Morning!';
+      else if (hour < 18) greeting = 'Good Afternoon!';
+      headerGreetingEl.textContent = greeting;
     }
 
     const headerNameEl = document.getElementById('vt-header-name');
@@ -599,14 +599,14 @@
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     row.innerHTML = '';
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      const key  = formatDateKey(d);
-      const dd   = data.days && data.days[key];
+      const key = formatDateKey(d);
+      const dd = data.days && data.days[key];
       const done = !!(dd && dd.workoutDone);
       const isToday = i === 0;
 
@@ -639,20 +639,20 @@
     let totalSets = 0, totalReps = 0, totalWeight = 0, totalMins = 0, count = 0;
 
     exercises.forEach(ex => {
-      totalSets   += ex.sets   || 0;
-      totalReps   += ex.reps   || 0;
+      totalSets += ex.sets || 0;
+      totalReps += ex.reps || 0;
       totalWeight += (ex.weight || 0) * (ex.sets || 1);
-      totalMins   += ex.durationMin || 0;
+      totalMins += ex.durationMin || 0;
       count++;
     });
 
     const avgStr = count > 0 ? Math.round(totalWeight / count) : 0;
-    const volKg  = Math.round(totalSets * totalReps * (totalWeight / Math.max(1, count)));
+    const volKg = Math.round(totalSets * totalReps * (totalWeight / Math.max(1, count)));
 
-    setText('vt-train-volume',   volKg > 0 ? `${volKg} kg` : '—');
-    setText('vt-train-time',     totalMins > 0 ? `${totalMins} min` : '—');
+    setText('vt-train-volume', volKg > 0 ? `${volKg} kg` : '—');
+    setText('vt-train-time', totalMins > 0 ? `${totalMins} min` : '—');
     setText('vt-train-strength', avgStr > 0 ? `${avgStr} kg` : '—');
-    setText('vt-train-records',  count > 0 ? String(count) : '—');
+    setText('vt-train-records', count > 0 ? String(count) : '—');
   }
 
   /* ──────────────────────────────────────────────────────────
