@@ -1178,7 +1178,7 @@ textarea {
 .app {
   width: min(100%, 520px) !important;
   margin-inline: auto;
-  padding: 14px 14px calc(var(--tab-h, 84px) + var(--safe-b, 0px) + 26px) !important;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 14px calc(var(--tab-h, 84px) + var(--safe-b, 0px) + 26px) !important;
 }
 
 .tab-panel {
