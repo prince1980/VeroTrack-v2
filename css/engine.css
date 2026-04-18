@@ -75,6 +75,8 @@ body {
 .app {
   max-width: 1140px;
   margin-inline: auto;
+  /* Push content below the device notch / Dynamic Island / status bar on any device */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* ─── BASE RESET ─────────────────────────────────────────────── */
