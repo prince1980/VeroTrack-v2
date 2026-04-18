@@ -24,7 +24,7 @@
     inFlight: false,
     lastAttemptAt: 0,
   };
-  const OVERLAY_IDS = ['modal-overlay', 'settings-overlay', 'eng-exercise-sheet', 'profile-overlay', 'avatar-picker-overlay'];
+  const OVERLAY_IDS = ['modal-overlay', 'settings-overlay', 'eng-exercise-sheet', 'profile-overlay', 'avatar-picker-overlay', 'notif-overlay'];
   let lastOverlayTrigger = null;
 
   function normalizeEmail(value) {
@@ -114,6 +114,10 @@
     }
     if (els.avatarPickerOverlay && !els.avatarPickerOverlay.hidden) {
       closeAvatarPicker();
+      return true;
+    }
+    if (els.notifOverlay && !els.notifOverlay.hidden) {
+      closeNotif();
       return true;
     }
     if (els.modalOverlay && !els.modalOverlay.hidden) {
@@ -274,6 +278,9 @@
     profileClose: document.getElementById('profile-close'),
     avatarPickerClose: document.getElementById('avatar-picker-close'),
     avatarGrid: document.getElementById('avatar-grid'),
+    notifOverlay: document.getElementById('notif-overlay'),
+    notifClose: document.getElementById('notif-close'),
+    btnNotifications: document.getElementById('btn-notifications'),
     homeGreeting: document.getElementById('home-greeting'),
     homeDate: document.getElementById('home-date'),
     homeProtein: document.getElementById('home-protein'),
@@ -1854,6 +1861,27 @@
   });
   if (els.btnEditAvatar) els.btnEditAvatar.addEventListener('click', openAvatarPicker);
   if (els.btnOpenProfile) els.btnOpenProfile.addEventListener('click', openProfileOverlay);
+
+  function openNotif() {
+    rememberOverlayTrigger();
+    markOverlayState(els.notifOverlay, true);
+    syncBodyScrollLock();
+  }
+  function closeNotif() {
+    if (!els.notifOverlay || els.notifOverlay.hidden) return;
+    markOverlayState(els.notifOverlay, false);
+    syncBodyScrollLock();
+    restoreOverlayTriggerFocus();
+  }
+  if (els.btnNotifications) {
+    // remove the old inline onclick
+    els.btnNotifications.removeAttribute('onclick');
+    els.btnNotifications.addEventListener('click', openNotif);
+  }
+  if (els.notifClose) els.notifClose.addEventListener('click', closeNotif);
+  if (els.notifOverlay) els.notifOverlay.addEventListener('click', (e) => {
+    if (e.target === els.notifOverlay) closeNotif();
+  });
 
   if (els.navOpenSettings) {
     els.navOpenSettings.addEventListener('click', () => {
