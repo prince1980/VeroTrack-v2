@@ -2,9 +2,9 @@ name: Supabase Keepalive Ping
 
 on:
   schedule:
-    # Runs at 00:00 UTC every 3 days
-    - cron: '0 0 */3 * *'
-  # Also allow manual triggering
+    # Runs at 09:00 UTC every 5 days (well within the 7-day pause limit)
+    - cron: '0 9 */5 * *'
+  # Allow manual trigger from GitHub Actions tab
   workflow_dispatch:
 
 jobs:
@@ -13,6 +13,15 @@ jobs:
     steps:
       - name: Ping Supabase REST API
         run: |
-          curl -H "apikey: sb_publishable_7ihTP84sdeKancFDaCep5w_ysBVwOMy" \
-               -H "Authorization: Bearer sb_publishable_7ihTP84sdeKancFDaCep5w_ysBVwOMy" \
-               "https://nhxkuppugjxtbmeimqyq.supabase.co/rest/v1/user_data?limit=1"
+          echo "⏰ Pinging Supabase at $(date -u)"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: sb_publishable_7ihTP84sdeKancFDaCep5w_ysBVwOMy" \
+            -H "Authorization: Bearer sb_publishable_7ihTP84sdeKancFDaCep5w_ysBVwOMy" \
+            "https://nhxkuppugjxtbmeimqyq.supabase.co/rest/v1/user_data?limit=1")
+          echo "✅ Supabase responded with HTTP $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 500 ]; then
+            echo "🟢 Project is active and healthy."
+          else
+            echo "🔴 Unexpected response. Check Supabase dashboard."
+            exit 1
+          fi
